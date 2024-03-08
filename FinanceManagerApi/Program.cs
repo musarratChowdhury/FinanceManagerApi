@@ -1,5 +1,6 @@
 using FinanceManagerApi.DbContext;
 using FinanceManagerApi.Models.Entity.Identity;
+using FinanceManagerApi.Repository;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,6 +18,7 @@ builder.Services.AddDbContext<FinanceDbContext>(options =>
 });
 builder.Services.AddIdentity<UserProfile, IdentityRole>()
 	.AddEntityFrameworkStores<FinanceDbContext>();
+builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 
 /*customize password requirements*/
 builder.Services.Configure<IdentityOptions>(options =>
