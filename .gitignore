@@ -1,0 +1,73 @@
+# Visual Studio files
+.vscode/
+.vs/
+*.suo
+*.user
+*.sln.docstates
+
+# Visual Studio Code files
+.vscode/
+
+# NuGet packages
+*.nuget.props
+*.lock.json
+*.paket.references
+packages/
+*.nupkg
+!.gitignore
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+
+# Rider files
+.idea/
+
+# Resharper files
+_ReSharper*/
+*.resharper
+*.ReSharper*
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Others
+*~
+*.cache
+*.log
+*.bak
+*.backup
+*.VSWebCache
+*.dll
+*.exe
+*.pdb
+*.cache
+*.opendb
+*.sqlite
+*.sqlitedb
+*.sqlite3
+*.csv
+*.bak
+*.log
+*.xml
+*.htm
+*.zip
+*.rar
+*.tar.gz
+*.7z
+*.gz
+*.iso
+*.tgz
+*.bz2
+*.xz
