@@ -1,0 +1,40 @@
+﻿services:
+  #Database Service
+  database:
+    #Pull the latest mysql image
+    image: mysql:latest
+    #Map port 3306 on the mysql container to port 3306 in the host
+    ports:
+      - "3306:3306"
+    #Specify where the persisted Data should be stored
+    volumes:
+      - /db_data:/var/lib/mysql
+    restart: always
+    #Set the environment variables
+    environment:
+      MYSQL_ROOT_PASSWORD: 1234
+      MYSQL_PASSWORD: 1234
+      MYSQL_DATABASE: fmdb
+      MYSQL_USER: muhit
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      timeout: 20s
+      retries: 10
+  #Api  Service
+  financemanagerapi:
+    image: financemanagerapi
+    build:
+      context: .
+      dockerfile: FinanceManagerApi/Dockerfile
+    #This Service Depends on the database service specifed above
+    depends_on:
+      - database
+    #Map port 8888 in the docker container to port 80 in the Api
+    ports:
+      - "8888:80"
+    restart: always
+    #Specify Environment Variables for the Api Service
+    environment:
+      - DBHOST=database
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
