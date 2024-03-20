@@ -16,10 +16,14 @@
       MYSQL_PASSWORD: 1234
       MYSQL_DATABASE: fmdb
       MYSQL_USER: muhit
-    healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
-      timeout: 20s
-      retries: 10
+
+    command: --default-authentication-plugin=mysql_native_password
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
   #Api  Service
   financemanagerapi:
     image: financemanagerapi
@@ -32,9 +36,9 @@
     #Map port 8888 in the docker container to port 80 in the Api
     ports:
       - "8888:80"
+      - "8889:443"
     restart: always
     #Specify Environment Variables for the Api Service
     environment:
       - DBHOST=database
       - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:80

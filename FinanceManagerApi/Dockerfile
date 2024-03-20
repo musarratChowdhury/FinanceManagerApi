@@ -19,7 +19,7 @@ RUN dotnet tool install --global dotnet-ef --version 7.0.2
 # Add the EF Core tools to the PATH
 ENV PATH="${PATH}:/root/.dotnet/tools"
 # Execute Entity Framework Core migrations
-RUN dotnet ef database update 
+# RUN dotnet ef database update 
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
