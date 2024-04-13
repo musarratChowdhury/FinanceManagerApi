@@ -1,11 +1,12 @@
-﻿using FinanceManagerApi.Models.Entity;
+﻿using FinanceManagerApi.Models.DTO;
+using FinanceManagerApi.Models.Entity;
 using FinanceManagerApi.Repository;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FinanceManagerApi.Controllers;
 
 [ApiController]
-[Route("[controller]")]
+[Route("[controller]/[action]")]
 public class ExpenseCategoryController : ControllerBase
 {
     private readonly IGenericRepository<ExpenseCategory> _expenseCategoryRepository;
@@ -23,25 +24,40 @@ public class ExpenseCategoryController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(int id)
+    public async Task<IActionResult> GetById(long id)
     {
-        var expenseCategory = await _expenseCategoryRepository.GetByIdAsync(id);
-        if (expenseCategory == null)
+        try
         {
-            return NotFound();
+            var expenseCategory = await _expenseCategoryRepository.GetByIdAsync(id);
+            if (expenseCategory == null)
+            {
+                return NotFound();
+            }
+            return Ok(expenseCategory);
         }
-        return Ok(expenseCategory);
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            return BadRequest(e.Message);
+        }
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(ExpenseCategory expenseCategory)
+    public async Task<IActionResult> Create(ExpenseCategoryDto expenseCategoryDto)
     {
+        var expenseCategory = new ExpenseCategory()
+        {
+            Name = expenseCategoryDto.Name,
+            EntryDate = expenseCategoryDto.EntryDate,
+            CreatedBy = Guid.Empty,
+            Expenses = new List<Expense>(),
+        };
         await _expenseCategoryRepository.InsertAsync(expenseCategory);
         return CreatedAtAction(nameof(GetById), new { id = expenseCategory.Id }, expenseCategory);
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, ExpenseCategory expenseCategory)
+    public async Task<IActionResult> Update(long id, ExpenseCategory expenseCategory)
     {
         if (id != expenseCategory.Id)
         {
@@ -65,13 +81,9 @@ public class ExpenseCategoryController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(int id)
+    public async Task<IActionResult> Delete(long id)
     {
         var expenseCategory = await _expenseCategoryRepository.GetByIdAsync(id);
-        if (expenseCategory == null)
-        {
-            return NotFound();
-        }
 
         await _expenseCategoryRepository.DeleteAsync(id);
 
