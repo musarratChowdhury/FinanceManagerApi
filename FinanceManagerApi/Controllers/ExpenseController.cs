@@ -64,6 +64,36 @@ public class ExpenseController : ControllerBase
         }
        
     }
+    
+    [HttpGet]
+    public async Task<IActionResult> GetTotalAmountExpensesOfACategory(long categoryId)
+    {
+        try
+        {
+            var expenses = await _expenseRepository.Filter(x => x.ExpenseCategoryId == categoryId);
+            return Ok(expenses.Sum(x => x.Amount));
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            return BadRequest(e.Message);
+        }
+    }
+    
+    [HttpGet]
+    public async Task<IActionResult> GetExpensesOfACategory(long categoryId)
+    {
+        try
+        {
+            var expenses = await _expenseRepository.Filter(x => x.ExpenseCategoryId == categoryId);
+            return Ok(expenses);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            return BadRequest(e.Message);
+        }
+    }
 
     [HttpPost]
     public async Task<IActionResult> Create(ExpenseDto expenseDto)
