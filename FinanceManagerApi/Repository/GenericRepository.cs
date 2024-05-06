@@ -1,4 +1,5 @@
-﻿using FinanceManagerApi.DbContext;
+﻿using System.Linq.Expressions;
+using FinanceManagerApi.DbContext;
 
 namespace FinanceManagerApi.Repository;
 
@@ -24,7 +25,14 @@ public class GenericRepository<TEntity> : IGenericRepository<TEntity> where TEnt
         return await _dbSet.ToListAsync();
     }
 
-    public async Task<TEntity> GetByIdAsync(object id)
+    public async Task<IEnumerable<TEntity>> Filter(Expression<Func<TEntity, bool>> predicate)
+    {
+        var query = _dbSet.Where(predicate);
+        var result = await query.ToListAsync();
+        return result;
+    }
+
+    public async Task<TEntity> GetByIdAsync(long id)
     {
         return await _dbSet.FindAsync(id);
     }
@@ -41,9 +49,9 @@ public class GenericRepository<TEntity> : IGenericRepository<TEntity> where TEnt
         await _context.SaveChangesAsync();
     }
 
-    public async Task DeleteAsync(object id)
+    public async Task DeleteAsync(long id)
     {
-        TEntity entityToDelete = await _dbSet.FindAsync(id);
+        var entityToDelete = await _dbSet.FindAsync(id);
         if (entityToDelete != null)
         {
             _dbSet.Remove(entityToDelete);
@@ -55,8 +63,9 @@ public class GenericRepository<TEntity> : IGenericRepository<TEntity> where TEnt
 public interface IGenericRepository<TEntity> where TEntity : class
 {
     Task<IEnumerable<TEntity>> GetAllAsync();
-    Task<TEntity> GetByIdAsync(object id);
+    Task<TEntity> GetByIdAsync(long id);
     Task InsertAsync(TEntity entity);
     Task UpdateAsync(TEntity entity);
-    Task DeleteAsync(object id);
+    Task DeleteAsync(long id);
+    Task<IEnumerable<TEntity>> Filter(Expression<Func<TEntity, bool>> predicate);
 }
