@@ -1,6 +1,7 @@
 ﻿using FinanceManagerApi.Models.DTO;
 using FinanceManagerApi.Models.Entity;
 using FinanceManagerApi.Repository;
+using FinanceManagerApi.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FinanceManagerApi.Controllers;
@@ -9,24 +10,24 @@ namespace FinanceManagerApi.Controllers;
 [Route("[controller]/[action]")]
 public class ExpenseController : ControllerBase
 {
-    private readonly IGenericRepository<Expense> _expenseRepository;
+    private readonly IExpenseService _expenseService;
 
-    public ExpenseController(IGenericRepository<Expense> expenseRepository)
+    public ExpenseController(IGenericRepository<Expense> expenseRepository, IExpenseService expenseService)
     {
-        _expenseRepository = expenseRepository ?? throw new ArgumentNullException(nameof(expenseRepository));
+        _expenseService = expenseService;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var expenseCategories = await _expenseRepository.GetAllAsync();
+        var expenseCategories = await _expenseService.GetAllExpensesAsync();
         return Ok(expenseCategories);
     }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(long id)
     {
-        var expense = await _expenseRepository.GetByIdAsync(id);
+        var expense = await _expenseService.GetExpenseByIdAsync(id);
         return Ok(expense);
     }
 
@@ -35,10 +36,7 @@ public class ExpenseController : ControllerBase
     {
         try
         {
-            var firstDayOfMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
-            var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
-            var expenses = await _expenseRepository.Filter(x => x.EntryDate >= firstDayOfMonth &&
-                                                                x.EntryDate <= lastDayOfMonth);
+            var expenses = await _expenseService.GetExpensesOfThisMonthAsync();
 
             return Ok(expenses);
         }
@@ -54,7 +52,7 @@ public class ExpenseController : ControllerBase
     {
         try
         {
-            var expenses = await _expenseRepository.Filter(x => x.EntryDate == day);
+            var expenses = await _expenseService.GetExpensesOfADayAsync(day);
             return Ok(expenses);
         }
         catch (Exception e)
@@ -70,8 +68,8 @@ public class ExpenseController : ControllerBase
     {
         try
         {
-            var expenses = await _expenseRepository.Filter(x => x.ExpenseCategoryId == categoryId);
-            return Ok(expenses.Sum(x => x.Amount));
+            var totalExpense = await _expenseService.GetTotalAmountExpensesOfACategoryAsync(categoryId);
+            return Ok(totalExpense);
         }
         catch (Exception e)
         {
@@ -85,7 +83,7 @@ public class ExpenseController : ControllerBase
     {
         try
         {
-            var expenses = await _expenseRepository.Filter(x => x.ExpenseCategoryId == categoryId);
+            var expenses = await _expenseService.GetExpensesOfACategoryAsync(categoryId);
             return Ok(expenses);
         }
         catch (Exception e)
@@ -98,37 +96,28 @@ public class ExpenseController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create(ExpenseDto expenseDto)
     {
-        var expense = new Expense()
-        {
-            Cause = expenseDto.Cause,
-            Amount = expenseDto.Amount,
-            EntryDate = expenseDto.EntryDate,
-            CreatedBy = Guid.Empty,
-            ExpenseCategoryId = expenseDto.ExpenseCategoryId
-        };
-        await _expenseRepository.InsertAsync(expense);
-        return CreatedAtAction(nameof(GetById), new { id = expense.Id }, expense);
+        await _expenseService.CreateExpenseAsync(expenseDto);
+        return Ok();
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(long id, Expense expense)
+    public async Task<IActionResult> Update(long id, ExpenseDto expenseDto)
     {
-        if (id != expense.Id)
+        if (id != expenseDto.Id)
         {
             return BadRequest();
         }
-
         try
         {
-            await _expenseRepository.UpdateAsync(expense);
+            await _expenseService.UpdateExpenseAsync(id, expenseDto);
         }
         catch (Exception)
         {
-            if (await _expenseRepository.GetByIdAsync(id) == null)
+            if (await _expenseService.GetExpenseByIdAsync(id) == null)
             {
                 return NotFound();
             }
-            throw;
+            return BadRequest();
         }
 
         return NoContent();
@@ -137,9 +126,9 @@ public class ExpenseController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(long id)
     {
-        var expense = await _expenseRepository.GetByIdAsync(id);
+        var expense = await _expenseService.GetExpenseByIdAsync(id);
 
-        await _expenseRepository.DeleteAsync(id);
+        await _expenseService.DeleteExpenseAsync(id);
 
         return NoContent();
     }

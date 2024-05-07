@@ -2,6 +2,7 @@
 
 public class ExpenseDto
 {
+    public long Id {get; set;}
     public string Cause {get; set;} = string.Empty;
     public double Amount {get; set;}
     public DateTime EntryDate {get; set;} = DateTime.Now;

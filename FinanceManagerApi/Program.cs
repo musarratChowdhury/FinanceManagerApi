@@ -1,6 +1,7 @@
 using FinanceManagerApi.DbContext;
 using FinanceManagerApi.Models.Entity.Identity;
 using FinanceManagerApi.Repository;
+using FinanceManagerApi.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,6 +13,7 @@ var connstring = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 builder.Services.AddDbContext<FinanceDbContext>(options =>
 {
 	options.UseMySql(connstring, ServerVersion.AutoDetect(connstring));
@@ -19,6 +21,7 @@ builder.Services.AddDbContext<FinanceDbContext>(options =>
 builder.Services.AddIdentity<UserProfile, IdentityRole>()
 	.AddEntityFrameworkStores<FinanceDbContext>();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+builder.Services.AddScoped<IExpenseService, ExpenseService>();
 
 /*customize password requirements*/
 builder.Services.Configure<IdentityOptions>(options =>
