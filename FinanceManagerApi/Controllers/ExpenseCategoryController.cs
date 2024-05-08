@@ -1,11 +1,13 @@
 ﻿using FinanceManagerApi.Models.DTO;
 using FinanceManagerApi.Models.Entity;
 using FinanceManagerApi.Repository;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FinanceManagerApi.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("[controller]/[action]")]
 public class ExpenseCategoryController : ControllerBase
 {

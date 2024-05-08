@@ -2,11 +2,13 @@
 using FinanceManagerApi.Models.Entity;
 using FinanceManagerApi.Repository;
 using FinanceManagerApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FinanceManagerApi.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("[controller]/[action]")]
 public class ExpenseController : ControllerBase
 {
