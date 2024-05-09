@@ -9,7 +9,7 @@ namespace FinanceManagerApi.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("[controller]/[action]")]
+[Route("api/[controller]/[action]")]
 public class ExpenseController : ControllerBase
 {
     private readonly IExpenseService _expenseService;

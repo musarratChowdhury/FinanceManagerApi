@@ -8,7 +8,7 @@ namespace FinanceManagerApi.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("[controller]/[action]")]
+[Route("api/[controller]")]
 public class ExpenseCategoryController : ControllerBase
 {
     private readonly IGenericRepository<ExpenseCategory> _expenseCategoryRepository;
