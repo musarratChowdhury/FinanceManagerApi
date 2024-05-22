@@ -14,6 +14,7 @@ services:
     image: nginx:latest
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
       - ./letsencrypt:/etc/letsencrypt
@@ -28,6 +29,7 @@ services:
     volumes:
       - ./letsencrypt:/etc/letsencrypt
       - ./letsencrypt-data:/data/letsencrypt
+    entrypoint: /bin/sh -c 'trap exit TERM; while :; do sleep 6h & wait $${!}; certbot renew; done;'
     networks:
       - app-network
 
