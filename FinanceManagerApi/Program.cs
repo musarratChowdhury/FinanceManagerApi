@@ -10,7 +10,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
-var connstring = builder.Configuration.GetConnectionString("DefaultConnection");
+var connstring = builder.Configuration.GetConnectionString("CockroachDb");
 
 // Add services to the container.
 
@@ -49,7 +49,7 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 builder.Services.AddDbContext<FinanceDbContext>(options =>
 {
-	options.UseMySql(connstring, ServerVersion.AutoDetect(connstring));
+	options.UseNpgsql(connstring);
 });
 builder.Services.AddIdentity<UserProfile, IdentityRole>()
 	.AddEntityFrameworkStores<FinanceDbContext>()
