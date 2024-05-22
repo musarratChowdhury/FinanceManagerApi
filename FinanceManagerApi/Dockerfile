@@ -13,13 +13,6 @@ RUN dotnet restore "./FinanceManagerApi/./FinanceManagerApi.csproj"
 COPY . .
 WORKDIR "/src/FinanceManagerApi"
 RUN dotnet build "./FinanceManagerApi.csproj" -c $BUILD_CONFIGURATION -o /app/build
-# Install Entity Framework Core tools
-RUN dotnet tool install --global dotnet-ef --version 7.0.2
-
-# Add the EF Core tools to the PATH
-ENV PATH="${PATH}:/root/.dotnet/tools"
-# Execute Entity Framework Core migrations
-RUN dotnet ef database update 
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release

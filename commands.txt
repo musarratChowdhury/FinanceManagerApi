@@ -1,4 +1,6 @@
 docker run --name my-mysql-container -e MYSQL_ROOT_PASSWORD=my-secret-pw -p 3306:3306 -d mysql:8.3.0
-CREATE DATABASE fmdb;
-//update database
-dotnet ef database update
+
+docker build -t financemanagerapi .
+docker-compose run --rm certbot certonly --webroot --webroot-path=/data/letsencrypt -d financemanager.duckdns.org
+
+
