@@ -1,0 +1,6 @@
+﻿Host : weird-gorilla-7085.8nk.cockroachlabs.cloud
+Port : 26257
+User : musarrat
+Pass : 
+Database : defaultdb
+URL  : jdbc:postgresql://weird-gorilla-7085.8nk.cockroachlabs.cloud:26257/defaultdb
