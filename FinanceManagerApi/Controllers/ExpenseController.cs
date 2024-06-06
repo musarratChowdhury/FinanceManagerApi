@@ -107,7 +107,8 @@ public class ExpenseController : ControllerBase
             return Unauthorized();
         }
 
-        expenseDto.CreatedBy = new Guid(userId); 
+        expenseDto.CreatedBy = new Guid(userId);
+        expenseDto.EntryDate = DateTime.UtcNow;
         await _expenseService.CreateExpenseAsync(expenseDto);
         return Ok();
     }
