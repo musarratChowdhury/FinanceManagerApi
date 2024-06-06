@@ -100,7 +100,8 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
-
+// Enable static files middleware
+app.UseStaticFiles();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -116,4 +117,10 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.UseCors("AllowSites");
+
+app.MapGet("/", async context =>
+{
+	context.Response.Redirect("/index.html");
+});
+
 app.Run();
