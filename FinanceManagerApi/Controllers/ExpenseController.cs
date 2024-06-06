@@ -1,4 +1,5 @@
-﻿using FinanceManagerApi.Models.DTO;
+﻿using System.Security.Claims;
+using FinanceManagerApi.Models.DTO;
 using FinanceManagerApi.Models.Entity;
 using FinanceManagerApi.Repository;
 using FinanceManagerApi.Services;
@@ -13,10 +14,12 @@ namespace FinanceManagerApi.Controllers;
 public class ExpenseController : ControllerBase
 {
     private readonly IExpenseService _expenseService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public ExpenseController(IGenericRepository<Expense> expenseRepository, IExpenseService expenseService)
+    public ExpenseController(IGenericRepository<Expense> expenseRepository, IExpenseService expenseService, IHttpContextAccessor httpContextAccessor)
     {
         _expenseService = expenseService;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     [HttpGet]
@@ -98,6 +101,13 @@ public class ExpenseController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create(ExpenseDto expenseDto)
     {
+        var userId = _httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        expenseDto.CreatedBy = new Guid(userId); 
         await _expenseService.CreateExpenseAsync(expenseDto);
         return Ok();
     }
