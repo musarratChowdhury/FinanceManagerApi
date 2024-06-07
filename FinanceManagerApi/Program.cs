@@ -12,15 +12,12 @@ using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 var connstring = builder.Configuration.GetConnectionString("CockroachDb");
 
-// Add services to the container.
-
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-	c.SwaggerDoc("v1", new OpenApiInfo { Title = "Your API", Version = "v1" });
+	c.SwaggerDoc("v1", new OpenApiInfo { Title = "FinanceManager", Version = "v1" });
 
-	// Define the security scheme
 	c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
 	{
 		Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
@@ -30,7 +27,6 @@ builder.Services.AddSwaggerGen(c =>
 		Scheme = "Bearer"
 	});
 
-	// Make sure Swagger UI requires a Bearer token to be included
 	c.AddSecurityRequirement(new OpenApiSecurityRequirement
 	{
 		{
@@ -51,9 +47,11 @@ builder.Services.AddDbContext<FinanceDbContext>(options =>
 {
 	options.UseNpgsql(connstring);
 });
+
 builder.Services.AddIdentity<UserProfile, IdentityRole>()
 	.AddEntityFrameworkStores<FinanceDbContext>()
 	.AddDefaultTokenProviders();
+
 builder.Services.AddAuthentication(options =>
 	{
 		options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -74,11 +72,11 @@ builder.Services.AddAuthentication(options =>
 			ValidAudience = builder.Configuration["JWT:Audience"],
 		};
 	});
+
 builder.Services.AddAuthorizationBuilder();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
 
-/*customize password requirements*/
 builder.Services.Configure<IdentityOptions>(options =>
 {
 	options.Password.RequireDigit = false;
@@ -101,7 +99,6 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
 	app.UseSwagger();
@@ -110,7 +107,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-//Authentication and Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
