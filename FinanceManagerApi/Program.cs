@@ -98,7 +98,8 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
-
+// Enable static files middleware
+app.UseStaticFiles();
 if (app.Environment.IsDevelopment())
 {
 	app.UseSwagger();
@@ -112,4 +113,10 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.UseCors("AllowSites");
+
+app.MapGet("/", async context =>
+{
+	context.Response.Redirect("/index.html");
+});
+
 app.Run();

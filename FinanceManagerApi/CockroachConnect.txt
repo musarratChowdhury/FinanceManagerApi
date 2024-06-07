@@ -1,6 +1,6 @@
 ﻿Host : weird-gorilla-7085.8nk.cockroachlabs.cloud
 Port : 26257
 User : musarrat
-Pass : 
-Database : defaultdb
+Pass : 59CZlHkfuwQ6NHNdBWy6Fw
+Database : financedb
 URL  : jdbc:postgresql://weird-gorilla-7085.8nk.cockroachlabs.cloud:26257/defaultdb
