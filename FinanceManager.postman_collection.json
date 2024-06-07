@@ -1,0 +1,194 @@
+{
+	"info": {
+		"_postman_id": "c5ac2044-0d61-4078-9235-521a612f412a",
+		"name": "FinanceManager",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "24636784"
+	},
+	"item": [
+		{
+			"name": "https://financemanager.duckdns.org/api/Expense/GetAll",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1lIjoiYWRtaW4iLCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6IjlhMDBlODM2LWFiOGEtNDk4Yi1hNjlmLWFmZDEwMmI1MGM1NyIsImVtYWlsIjoiYWRtaW5AZ21haWwuY29tIiwic3ViIjoiYWRtaW5AZ21haWwuY29tIiwianRpIjoiYmQ0YTA4ZDctOGZlYy00OTMyLWJlNTItYzQ3ODFhZDAxNGNkIiwiZXhwIjoxNzE3NzQ2NTM1LCJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjUwMDAiLCJhdWQiOiJ1c2VyIn0.ufDix9GhcYYviSvSBVrNB_k4Q-vi9xEnvn2abDDKXSs",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://financemanager.duckdns.org/api/Expense/GetAll",
+					"protocol": "https",
+					"host": [
+						"financemanager",
+						"duckdns",
+						"org"
+					],
+					"path": [
+						"api",
+						"Expense",
+						"GetAll"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "https://financemanager.duckdns.org/api/Authentication/Login",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"email\": \"admin@gmail.com\",\r\n  \"password\": \"123456\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://financemanager.duckdns.org/api/Authentication/Login",
+					"protocol": "https",
+					"host": [
+						"financemanager",
+						"duckdns",
+						"org"
+					],
+					"path": [
+						"api",
+						"Authentication",
+						"Login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "https://financemanager.duckdns.org/api/Expense/Create",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1lIjoiYWRtaW4iLCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6IjlhMDBlODM2LWFiOGEtNDk4Yi1hNjlmLWFmZDEwMmI1MGM1NyIsImVtYWlsIjoiYWRtaW5AZ21haWwuY29tIiwic3ViIjoiYWRtaW5AZ21haWwuY29tIiwianRpIjoiMDQyNWRhOWEtZWM2OC00ZDZjLTkxOWMtYjY1YjQ5NjdjMzM1IiwiZXhwIjoxNzE2NTc4MzUzLCJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjUwMDAiLCJhdWQiOiJ1c2VyIn0.DlPsGVqyZ-uf0dG-Q81ZCxcKVsBwMcOtcW47ndKspI8",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"id\": 0,\r\n  \"cause\": \"lalshak+patshak\",\r\n  \"amount\": 40,\r\n  \"entryDate\": \"2024-05-24T16:21:19.254Z\",\r\n  \"createdBy\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\r\n  \"expenseCategoryId\": 1\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://financemanager.duckdns.org/api/Expense/Create",
+					"protocol": "https",
+					"host": [
+						"financemanager",
+						"duckdns",
+						"org"
+					],
+					"path": [
+						"api",
+						"Expense",
+						"Create"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "https://financemanager.duckdns.org/api/ExpenseCategory/",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1lIjoiYWRtaW4iLCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6IjlhMDBlODM2LWFiOGEtNDk4Yi1hNjlmLWFmZDEwMmI1MGM1NyIsImVtYWlsIjoiYWRtaW5AZ21haWwuY29tIiwic3ViIjoiYWRtaW5AZ21haWwuY29tIiwianRpIjoiMDQyNWRhOWEtZWM2OC00ZDZjLTkxOWMtYjY1YjQ5NjdjMzM1IiwiZXhwIjoxNzE2NTc4MzUzLCJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjUwMDAiLCJhdWQiOiJ1c2VyIn0.DlPsGVqyZ-uf0dG-Q81ZCxcKVsBwMcOtcW47ndKspI8",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"name\": \"bazaar\",\r\n  \"entryDate\": \"2024-05-24T16:18:29.634Z\",\r\n  \"createdBy\": \"9a00e836-ab8a-498b-a69f-afd102b50c57\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://financemanager.duckdns.org/api/ExpenseCategory/",
+					"protocol": "https",
+					"host": [
+						"financemanager",
+						"duckdns",
+						"org"
+					],
+					"path": [
+						"api",
+						"ExpenseCategory",
+						""
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "https://localhost:44380/api/Receipt",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1lIjoiYWRtaW4iLCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6IjlhMDBlODM2LWFiOGEtNDk4Yi1hNjlmLWFmZDEwMmI1MGM1NyIsImVtYWlsIjoiYWRtaW5AZ21haWwuY29tIiwic3ViIjoiYWRtaW5AZ21haWwuY29tIiwianRpIjoiYmQ0YTA4ZDctOGZlYy00OTMyLWJlNTItYzQ3ODFhZDAxNGNkIiwiZXhwIjoxNzE3NzQ2NTM1LCJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjUwMDAiLCJhdWQiOiJ1c2VyIn0.ufDix9GhcYYviSvSBVrNB_k4Q-vi9xEnvn2abDDKXSs",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"Id\": 11,\r\n  \"GrandTotal\": 250.75,\r\n  \"TotalItems\": 5,\r\n  \"ExpenseDate\": \"2023-06-07T00:00:00Z\",\r\n  \"CreatedBy\": \"d290f1ee-6c54-4b01-90e6-d701748f0851\",\r\n  \"EntryDate\": \"2023-06-07T00:00:00Z\",\r\n  \"Expenses\": [\r\n    {\r\n      \"Cause\": \"Office Supplies\",\r\n      \"Amount\": 50.00,\r\n      \"Quantity\": 10,\r\n      \"UnitPrice\": 5.00,\r\n      \"ExpenseDate\": \"2023-06-06T00:00:00Z\",\r\n      \"EntryDate\": \"2023-06-07T00:00:00Z\",\r\n      \"CreatedBy\": \"d290f1ee-6c54-4b01-90e6-d701748f0851\",\r\n      \"ExpenseCategoryId\": 1\r\n    },\r\n    {\r\n      \"Cause\": \"Lunch Meeting\",\r\n      \"Amount\": 75.00,\r\n      \"Quantity\": null,\r\n      \"UnitPrice\": null,\r\n      \"ExpenseDate\": \"2023-06-06T00:00:00Z\",\r\n      \"EntryDate\": \"2023-06-07T00:00:00Z\",\r\n      \"CreatedBy\": \"d290f1ee-6c54-4b01-90e6-d701748f0851\",\r\n      \"ExpenseCategoryId\": 1\r\n    },\r\n    {\r\n      \"Cause\": \"Travel Expenses\",\r\n      \"Amount\": 125.75,\r\n      \"Quantity\": null,\r\n      \"UnitPrice\": null,\r\n      \"ExpenseDate\": \"2023-06-06T00:00:00Z\",\r\n      \"EntryDate\": \"2023-06-07T00:00:00Z\",\r\n      \"CreatedBy\": \"d290f1ee-6c54-4b01-90e6-d701748f0851\",\r\n      \"ExpenseCategoryId\": 1\r\n    }\r\n  ]\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://localhost:44380/api/Receipt",
+					"protocol": "https",
+					"host": [
+						"localhost"
+					],
+					"port": "44380",
+					"path": [
+						"api",
+						"Receipt"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
