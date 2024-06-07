@@ -12,6 +12,8 @@ public class Expense
     public DateTime EntryDate {get; set;} = DateTime.UtcNow;
     public Guid CreatedBy {get ;set;}
 
+    public long? ReceiptId { get; set; }
+    public Receipt? Receipt { get; set; }
     public long? ExpenseCategoryId { get; set; }
     public ExpenseCategory? ExpenseCategory { get; set; }
 }

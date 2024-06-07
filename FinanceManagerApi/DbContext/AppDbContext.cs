@@ -16,6 +16,7 @@ public class FinanceDbContext :  IdentityDbContext<UserProfile>
     public DbSet<ExpenseCategory> ExpenseCategories { get; set; }
     public DbSet<IncomeCategory> IncomeCategories { get; set; }
     public DbSet<Income> Incomes { get; set; }
+    public DbSet<Receipt> Receipts { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -28,6 +29,12 @@ public class FinanceDbContext :  IdentityDbContext<UserProfile>
             .HasOne(i => i.IncomeCategory)
             .WithMany(ic => ic.Incomes)
             .HasForeignKey(i => i.IncomeCategoryId);
+        
+        modelBuilder.Entity<Expense>()
+            .HasOne(e => e.Receipt) 
+            .WithMany(ec => ec.Expenses) 
+            .HasForeignKey(e => e.ReceiptId);
+        
         modelBuilder.Entity<IdentityUserLogin<string>>().HasNoKey();
         modelBuilder.Entity<IdentityUserRole<string>>().HasNoKey();
         modelBuilder.Entity<IdentityUserToken<string>>().HasNoKey();
