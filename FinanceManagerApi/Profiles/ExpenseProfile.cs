@@ -9,5 +9,6 @@ public class ExpenseProfile : Profile
     public ExpenseProfile()
     {
         CreateMap<Expense, ExpenseDto>().ReverseMap();
+        CreateMap<Receipt, ReceiptDto>().ReverseMap();
     }
 }

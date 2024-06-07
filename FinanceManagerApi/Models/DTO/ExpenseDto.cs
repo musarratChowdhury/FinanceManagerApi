@@ -11,4 +11,5 @@ public class ExpenseDto
     public DateTime EntryDate {get; set;} = DateTime.Now;
     public Guid CreatedBy {get ;set;}
     public long? ExpenseCategoryId { get; set; }
+    public long? ReceiptId { get; set; } 
 }

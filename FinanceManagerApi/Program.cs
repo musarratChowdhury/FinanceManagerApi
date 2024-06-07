@@ -76,6 +76,7 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorizationBuilder();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
+builder.Services.AddScoped<IReceiptService, ReceiptService>();
 
 builder.Services.Configure<IdentityOptions>(options =>
 {
