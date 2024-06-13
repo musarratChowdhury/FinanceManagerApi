@@ -9,10 +9,10 @@ public interface IExpenseService
 {
     Task<IEnumerable<ExpenseDto>> GetAllExpensesAsync();
     Task<ExpenseDto> GetExpenseByIdAsync(long id);
-    Task<IEnumerable<ExpenseDto>> GetExpensesOfThisMonthAsync();
-    Task<IEnumerable<ExpenseDto>> GetExpensesOfADayAsync(DateTime day);
+	Task<IEnumerable<ExpenseCategoryGroupDto>> GetExpensesOfThisMonthAsync();
+	Task<IEnumerable<ExpenseDto>> GetExpensesOfADayAsync(DateTime day);
     Task<double> GetTotalAmountExpensesOfACategoryAsync(long categoryId);
-    Task CreateExpenseAsync(ExpenseDto expenseDto);
+	Task CreateExpenseAsync(ExpenseDto expenseDto);
     Task UpdateExpenseAsync(long id, ExpenseDto expenseDto);
     Task DeleteExpenseAsync(long id);
     Task<IEnumerable<ExpenseDto>> GetExpensesOfACategoryAsync(long categoryId);
@@ -60,25 +60,42 @@ public class ExpenseService : IExpenseService
             throw;
         }
     }
-    
-    public async Task<IEnumerable<ExpenseDto>> GetExpensesOfThisMonthAsync()
-    {
-        try
-        {
-            var firstDayOfMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
-            var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
-            var expenses = await _expenseRepository.Filter(x => x.EntryDate >= firstDayOfMonth &&
-                                                                x.EntryDate <= lastDayOfMonth);
-            return _mapper.Map<IEnumerable<ExpenseDto>>(expenses);
-        }
-        catch (Exception e)
-        {
-            _logger.LogError(e, e.Message);
-            throw;
-        }
-    }
-    
-    public async Task<IEnumerable<ExpenseDto>> GetExpensesOfADayAsync(DateTime day)
+
+	public async Task<IEnumerable<ExpenseCategoryGroupDto>> GetExpensesOfThisMonthAsync()
+	{
+		try
+		{
+			var now = DateTime.UtcNow;
+			var firstDayOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+			var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
+
+			var expenses = await _expenseRepository.Filter(x => x.EntryDate >= firstDayOfMonth &&
+																x.EntryDate <= lastDayOfMonth, "ExpenseCategory");
+
+			var expensesGroup = expenses.GroupBy(x => new
+
+			{
+				x.ExpenseCategoryId,
+				x.ExpenseCategory?.Name
+
+			}).Select(g => new ExpenseCategoryGroupDto()
+			{
+				CategoryId = (long)g.Key.ExpenseCategoryId,
+				CategoryName = g.Key.Name,
+				Expenses = _mapper.Map<IEnumerable<ExpenseDto>>(g.ToList()),
+				TotalAmount = g.Sum(x=>x.Amount)
+			});
+			return expensesGroup;
+		}
+		catch (Exception e)
+		{
+			_logger.LogError(e, e.Message);
+			throw;
+		}
+	}
+
+
+	public async Task<IEnumerable<ExpenseDto>> GetExpensesOfADayAsync(DateTime day)
     {
         try
         {
