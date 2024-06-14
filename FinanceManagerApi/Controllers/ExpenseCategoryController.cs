@@ -3,6 +3,7 @@ using FinanceManagerApi.Models.Entity;
 using FinanceManagerApi.Repository;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace FinanceManagerApi.Controllers;
 
@@ -12,10 +13,12 @@ namespace FinanceManagerApi.Controllers;
 public class ExpenseCategoryController : ControllerBase
 {
     private readonly IGenericRepository<ExpenseCategory> _expenseCategoryRepository;
+	private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public ExpenseCategoryController(IGenericRepository<ExpenseCategory> expenseCategoryRepository)
+	public ExpenseCategoryController(IGenericRepository<ExpenseCategory> expenseCategoryRepository, IHttpContextAccessor httpContextAccessor)
     {
         _expenseCategoryRepository = expenseCategoryRepository ?? throw new ArgumentNullException(nameof(expenseCategoryRepository));
+        _httpContextAccessor = httpContextAccessor;
     }
 
     [HttpGet]
@@ -47,11 +50,16 @@ public class ExpenseCategoryController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create(ExpenseCategoryDto expenseCategoryDto)
     {
-        var expenseCategory = new ExpenseCategory()
+		var userId = _httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+		if (string.IsNullOrEmpty(userId))
+		{
+			return Unauthorized();
+		}
+		var expenseCategory = new ExpenseCategory()
         {
             Name = expenseCategoryDto.Name,
-            EntryDate = expenseCategoryDto.EntryDate,
-            CreatedBy = Guid.Empty,
+            EntryDate = DateTime.UtcNow,
+            CreatedBy = new Guid(userId),
             Expenses = new List<Expense>(),
         };
         await _expenseCategoryRepository.InsertAsync(expenseCategory);
@@ -61,14 +69,20 @@ public class ExpenseCategoryController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(long id, ExpenseCategory expenseCategory)
     {
-        if (id != expenseCategory.Id)
+		var userId = _httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+		if (string.IsNullOrEmpty(userId))
+		{
+			return Unauthorized();
+		}
+		if (id != expenseCategory.Id)
         {
             return BadRequest();
         }
 
         try
         {
-            await _expenseCategoryRepository.UpdateAsync(expenseCategory);
+			expenseCategory.CreatedBy = new Guid(userId);
+			await _expenseCategoryRepository.UpdateAsync(expenseCategory);
         }
         catch (Exception)
         {
