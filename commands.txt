@@ -3,4 +3,53 @@ docker run --name my-mysql-container -e MYSQL_ROOT_PASSWORD=my-secret-pw -p 3306
 docker build -t financemanagerapi .
 docker-compose run --rm certbot certonly --webroot --webroot-path=/data/letsencrypt -d financemanager.duckdns.org
 
+//HOW TO UPDATE?REFRESH THE API ON AWS
+step 1 : GITPULL
+step 2: DELETE THE OLD DOCKERIMAGE OF THE API
+step 3: DOCKER_Compose down
+step 4: DOCKER_COMPOSE UP
+
+
+Check Disk Usage:
+
+SSH into your EC2 instance and use the following commands to check disk usage:
+
+bash
+Copy code
+df -h
+This command will show you the disk usage of all mounted filesystems.
+
+bash
+Copy code
+du -sh /*
+This command will show you the disk usage of directories.
+
+Clean Up Docker Resources:
+
+Remove Unused Docker Images:
+
+bash
+Copy code
+docker image prune -a
+This will remove all unused Docker images.
+
+Remove Unused Docker Containers:
+
+bash
+Copy code
+docker container prune
+This will remove all stopped containers.
+
+Remove Unused Docker Volumes:
+
+bash
+Copy code
+docker volume prune
+This will remove all unused volumes.
+
+Remove Dangling Images and Build Cache:
+
+bash
+Copy code
+docker builder prune
 
