@@ -53,6 +53,37 @@ public class ExpenseController : ControllerBase
     }
 
     [HttpGet]
+    public async Task<IActionResult> GetExpensesOfAMonth(int month)
+    {
+        try
+        {
+            var expenses = await _expenseService.GetExpensesOfAMonthAsync(month);
+
+            return Ok(expenses);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            return BadRequest(e.Message);
+        }
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetBarChartData()
+    {
+        try
+        {
+            var barchartData = await _expenseService.GetMonthlyExpensesForThisYearAsync();
+            return Ok(barchartData);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            return BadRequest(e.Message);
+        }
+    }
+
+    [HttpGet]
     public async Task<IActionResult> GetExpensesOfADay(DateTime day)
     {
         try
