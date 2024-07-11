@@ -65,11 +65,13 @@ public class ExpenseService : IExpenseService
     {
         try
         {
-            var firstDayOfMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            var firstDayOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
             var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
+
             var expenses = await _expenseRepository.Filter(x => x.EntryDate >= firstDayOfMonth &&
                                                                 x.EntryDate <= lastDayOfMonth);
             return _mapper.Map<IEnumerable<ExpenseDto>>(expenses);
+
         }
         catch (Exception e)
         {
