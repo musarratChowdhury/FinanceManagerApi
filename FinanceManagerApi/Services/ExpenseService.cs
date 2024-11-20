@@ -286,7 +286,7 @@ public class ExpenseService : IExpenseService
     {
         try
         {
-            var firstDayOfMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            var firstDayOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
             var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
             var expenses = await _expenseRepository.Filter(x => x.ExpenseCategoryId == categoryId &&
                                                                 x.EntryDate >= firstDayOfMonth &&

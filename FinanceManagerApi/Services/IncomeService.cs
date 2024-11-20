@@ -65,7 +65,7 @@ public class IncomeService : IIncomeService
     {
         try
         {
-            var firstDayOfMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            var firstDayOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
             var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
             var Incomes = await _IncomeRepository.Filter(x => x.EntryDate >= firstDayOfMonth &&
                                                                 x.EntryDate <= lastDayOfMonth);
@@ -170,7 +170,7 @@ public class IncomeService : IIncomeService
     {
         try
         {
-            var firstDayOfMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            var firstDayOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
             var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
             var Incomes = await _IncomeRepository.Filter(x => x.IncomeCategoryId == categoryId &&
                                                                 x.EntryDate >= firstDayOfMonth &&
