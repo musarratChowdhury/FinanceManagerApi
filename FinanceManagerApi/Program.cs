@@ -1,5 +1,6 @@
 using System.Text;
 using FinanceManagerApi.DbContext;
+using FinanceManagerApi.Middlewares;
 using FinanceManagerApi.Models.Entity.Identity;
 using FinanceManagerApi.Repository;
 using FinanceManagerApi.Services;
@@ -100,6 +101,8 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 // Enable static files middleware
+
+app.UseMiddleware<ExceptionMiddleware>();
 app.UseStaticFiles();
 if (app.Environment.IsDevelopment())
 {
