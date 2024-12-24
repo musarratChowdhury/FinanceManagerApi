@@ -45,4 +45,34 @@ public class ExpenseServiceTests
         Assert.Equal(expenseDto.Amount, result.Amount);
         Assert.Equal(expenseDto.ExpenseDate, result.ExpenseDate);
     }
+    
+    [Fact]
+    public async Task GetExpenseByIdAsync_ShouldLogErrorAndThrow_WhenRepositoryThrowsException()
+    {
+        // Arrange
+        var expenseId = 1L;
+        var exception = new Exception("Database error");
+
+        _expenseRepositoryMock
+            .Setup(repo => repo.GetByIdAsync(expenseId))
+            .ThrowsAsync(exception);
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<Exception>(() => _sut.GetExpenseByIdAsync(expenseId));
+        Assert.Equal("Database error", ex.Message);
+
+        // Verify logging
+        _loggerMock.Verify(
+            logger => logger.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((o, t) => o.ToString().Contains("Database error")),
+                exception,
+                It.IsAny<Func<It.IsAnyType, Exception, string>>()
+            ),
+            Times.Once
+        );
+    }
+
+
 }
