@@ -1,0 +1,13 @@
+services:
+  cockroachdb:
+    image: cockroachdb/cockroach:latest
+    container_name: fmapi-cockroach
+    command: start-single-node --insecure
+    ports:
+      - "26257:26257"
+      - "8081:8081"
+    volumes:
+      - fmapi-cockroach-data:/cockroach/cockroach-data
+
+volumes:
+  fmapi-cockroach-data:

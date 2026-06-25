@@ -38,6 +38,9 @@ public class FinanceDbContext :  IdentityDbContext<UserProfile>
         modelBuilder.Entity<IdentityUserLogin<string>>().HasNoKey();
         modelBuilder.Entity<IdentityUserRole<string>>().HasNoKey();
         modelBuilder.Entity<IdentityUserToken<string>>().HasNoKey();
+        modelBuilder.Entity<IdentityPasskeyData>().HasNoKey();
+        modelBuilder.Entity<IdentityUserPasskey<string>>().HasNoKey();
+        modelBuilder.Entity<IdentityUserPasskey<string>>().Ignore(p => p.Data);
         
     }
 }
