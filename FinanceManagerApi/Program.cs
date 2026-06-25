@@ -1,4 +1,5 @@
 using System.Text;
+using FinanceManagerApi.Data;
 using FinanceManagerApi.DbContext;
 using FinanceManagerApi.Middlewares;
 using FinanceManagerApi.Models.Entity.Identity;
@@ -122,5 +123,11 @@ app.MapGet("/", async context =>
 {
 	context.Response.Redirect("/index.html");
 });
+
+if (app.Environment.IsDevelopment())
+{
+	using var scope = app.Services.CreateScope();
+	await DbInitializer.SeedAsync(scope.ServiceProvider);
+}
 
 app.Run();
