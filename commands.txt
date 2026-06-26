@@ -53,3 +53,10 @@ bash
 Copy code
 docker builder prune
 
+
+//HOW TO UPDATE LOCAL DB SCHEMA (dev) — script handles everything
+dotnet ef migrations script --idempotent --project FinanceManagerApi --output .ef-migrations.sql
+Get-Content -Raw .\.ef-migrations.sql | docker exec -i fmapi-cockroach ./cockroach sql --insecure -d financedb
+Remove-Item .\.ef-migrations.sql
+// Or just: ./db-fresh.ps1
+
