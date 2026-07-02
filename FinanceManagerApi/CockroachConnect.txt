@@ -4,3 +4,5 @@ User : musarrat
 Pass : 59CZlHkfuwQ6NHNdBWy6Fw
 Database : financedb
 URL  : jdbc:postgresql://weird-gorilla-7085.8nk.cockroachlabs.cloud:26257/defaultdb
+
+"Host=weird-gorilla-7085.8nk.cockroachlabs.cloud;Port=26257;Username=musarrat;Password=59CZlHkfuwQ6NHNdBWy6Fw;Database=financedb;SSL Mode=Require;Trust Server Certificate=true;"
