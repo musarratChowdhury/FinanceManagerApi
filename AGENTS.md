@@ -24,8 +24,7 @@ Run from repo root unless noted.
 ## Local DB
 
 - Start: `docker compose -f docker-compose.dev.yml up -d` (creates the `fmapi-cockroach` container, listens on `localhost:26257`).
-- Create database (one-time): `docker exec -it fmapi-cockroach ./cockroach sql --insecure -e "CREATE DATABASE IF NOT EXISTS financedb;"`.
-- Apply migrations: `dotnet ef database update --project FinanceManagerApi`.
+- Apply migrations: `./db-fresh.ps1` (idempotent — creates `financedb` if missing, generates an idempotent SQL script from EF migrations, applies it via `cockroach sql`). Re-run after any `git pull` that changes `FinanceManagerApi/Migrations/`. Do **not** use `dotnet ef database update` here — see `LOCAL_DB_SETUP.md` troubleshooting for why the script approach is used.
 - Stop: `docker compose -f docker-compose.dev.yml down`. Data persists in the `fmapi-cockroach-data` named volume.
 - Docker Desktop's VHDX is configured to live on D:\ (Resources → Advanced → Disk image location). Verify before pulling any large images.
 - The base `appsettings.json` contains a placeholder `CockroachDb` (localhost) and `JWT:Secret` (`REPLACE_VIA_USER_SECRETS`). For prod / remote deployments, override via:
@@ -57,6 +56,7 @@ Run from repo root unless noted.
 - Entities in `Models/Entity/`, DTOs in `Models/DTO/`, error/response shapes in `Models/Errors/`.
 - Controllers are under `[Authorize]` by default; authentication-free endpoints must be added to `AuthenticationController` or opted out explicitly.
 - `commands.txt` at repo root documents the manual AWS/EC2 deploy dance (`docker-compose down` → `docker-compose up` after `git pull`). Use it as the source of truth for deploy steps — there is no CI.
+- `db-fresh.ps1` at repo root — local DB migration script (see "Local DB" section).
 
 ## Reference
 

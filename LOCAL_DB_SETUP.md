@@ -141,14 +141,15 @@ Also update the "Gotchas" bullet about committed secrets to reflect that they ha
 
 ```powershell
 docker compose -f docker-compose.dev.yml up -d
-docker exec -it fmapi-cockroach ./cockroach sql --insecure -e "CREATE DATABASE IF NOT EXISTS financedb;"
 ```
 
 ### D. Apply migrations
 
 ```powershell
-dotnet ef database update --project FinanceManagerApi
+./db-fresh.ps1
 ```
+
+The script is idempotent. It ensures `financedb` exists, generates an idempotent SQL script from the EF Core migrations, and applies it through the container's `cockroach sql`. Re-run it any time after a fresh `git pull` to bring the schema up to date. The generated `.ef-migrations.sql` is created at the repo root during the run and removed on success; it stays on disk (and the script exits non-zero) if the apply fails, so you can inspect it.
 
 ### E. Run the API
 
@@ -170,8 +171,10 @@ The csproj already declares `<UserSecretsId>c079809c-038e-401e-b5af-38011dd5f18e
 ## Verification checklist
 
 - [ ] `docker ps` shows `fmapi-cockroach` running and healthy.
-- [ ] `docker exec -it fmapi-cockroach ./cockroach sql --insecure -e "SHOW DATABASES;"` lists `financedb`.
-- [ ] `dotnet ef database update --project FinanceManagerApi` reports no pending migrations (or applies them successfully).
+- [ ] `./db-fresh.ps1` exits with code 0.
+- [ ] `docker exec fmapi-cockroach ./cockroach sql --insecure -e "SHOW DATABASES;"` lists `financedb`.
+- [ ] `docker exec fmapi-cockroach ./cockroach sql --insecure -d financedb -e "SHOW TABLES;"` lists the EF + Identity tables (e.g. `Expenses`, `ExpenseCategories`, `Incomes`, `IncomeCategories`, `Receipts`, `AspNetUsers`, `AspNetRoles`, `__EFMigrationsHistory`).
+- [ ] Re-running `./db-fresh.ps1` is a no-op (idempotent script skips already-applied migrations).
 - [ ] `dotnet run --project FinanceManagerApi` starts without throwing the previous `IdentityPasskeyData` / `IdentityUserPasskey<string>` model errors.
 - [ ] `GET http://localhost:5006/swagger` returns 200.
 - [ ] `POST /api/Authentication/register` with a fresh username returns 200.
@@ -210,6 +213,36 @@ If that fails, the container is down. `docker compose -f docker-compose.dev.yml 
 ### JWT signing key error at startup
 
 `IDX10720` or similar — `JWT:Secret` is too short for HS256 in .NET 10. The dev secret in `appsettings.Development.json` is intentionally long; do not shorten it.
+
+### Want to migrate manually without `db-fresh.ps1`
+
+The script wraps two steps. Equivalent one-liner:
+
+```powershell
+docker exec fmapi-cockroach ./cockroach sql --insecure -e "CREATE DATABASE IF NOT EXISTS financedb;"
+dotnet ef migrations script --idempotent --project FinanceManagerApi --output .ef-migrations.sql
+Get-Content -Raw .\.ef-migrations.sql | docker exec -i fmapi-cockroach ./cockroach sql --insecure -d financedb
+Remove-Item .\.ef-migrations.sql
+```
+
+### Why `dotnet ef database update` is not used
+
+`database update` boots the EF design-time host and runs each migration's `Up` through the Npgsql provider against a live connection. On this project that path is unreliable (provider / design-time model quirks). The script approach (`migrations script --idempotent` → emit SQL → `cockroach sql`) only needs the model to compile, and `cockroach sql` is a normal Postgres-protocol client. If `db-fresh.ps1` itself fails, the generated `.ef-migrations.sql` stays on disk so you can inspect or hand-apply the SQL.
+
+### Why the generated SQL is post-processed (CockroachDB DO-block limitation)
+
+The Npgsql EF Core provider wraps every DDL statement in a PL/pgSQL anonymous block:
+
+```sql
+DO $EF$
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = 'X') THEN
+    CREATE TABLE "..." (...);
+    END IF;
+END $EF$;
+```
+
+CockroachDB does **not** support DDL inside `DO` blocks — it returns `unimplemented: CREATE TABLE usage inside a function definition is not supported` (see CockroachDB issue #110080). The script post-processes the generated SQL to strip the `DO` wrappers, then applies each migration's DDL statements individually through `cockroach sql`. The script also maintains `__EFMigrationsHistory` itself: before applying a migration, it checks whether the row already exists, and on success it inserts the row. Re-runs are idempotent.
 
 ### Want to point the API at a different DB later
 
