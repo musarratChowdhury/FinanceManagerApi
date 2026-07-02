@@ -53,11 +53,12 @@ public class ExpenseController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetExpensesOfAMonth(int month)
+    public async Task<IActionResult> GetExpensesOfAMonth(int month, int? year = null)
     {
         try
         {
-            var expenses = await _expenseService.GetExpensesOfAMonthAsync(month);
+            var resolvedYear = year ?? DateTime.UtcNow.Year;
+            var expenses = await _expenseService.GetExpensesOfAMonthAsync(month, resolvedYear);
 
             return Ok(expenses);
         }

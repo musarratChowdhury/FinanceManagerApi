@@ -18,7 +18,7 @@ public interface IExpenseService
     Task<IEnumerable<ExpenseDto>> GetExpensesOfACategoryAsync(long categoryId);
     Task<IEnumerable<ExpenseDto>> GetExpensesOfACategoryThisMonthAsync(long categoryId);
     Task<IEnumerable<ExpenseDto>> GetExpensesOfACategoryADayAsync(long categoryId, DateTime day);
-    Task<IEnumerable<ExpenseCategoryGroupDto>> GetExpensesOfAMonthAsync(int monthNo);
+    Task<IEnumerable<ExpenseCategoryGroupDto>> GetExpensesOfAMonthAsync(int monthNo, int year);
     Task<double> GetTotalExpensesOfAMonthAsync(int monthNo);
     Task<IEnumerable<MonthlyExpenseDto>> GetMonthlyExpensesForThisYearAsync();
 }
@@ -97,16 +97,22 @@ public class ExpenseService : IExpenseService
 		}
 	}
 
-    public async Task<IEnumerable<ExpenseCategoryGroupDto>> GetExpensesOfAMonthAsync(int monthNo)
+    public async Task<IEnumerable<ExpenseCategoryGroupDto>> GetExpensesOfAMonthAsync(int monthNo, int year)
     {
         if (monthNo < 1 || monthNo > 12)
         {
             throw new ArgumentOutOfRangeException(nameof(monthNo), "Month number must be between 1 and 12.");
         }
+
+        var currentYear = DateTime.UtcNow.Year;
+        if (year < 1 || year > currentYear + 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(year), $"Year must be between 1 and {currentYear + 1}.");
+        }
+
         try
         {
-            var now = DateTime.UtcNow;
-            var firstDayOfMonth = new DateTime(now.Year, monthNo, 1, 0, 0, 0, DateTimeKind.Utc);
+            var firstDayOfMonth = new DateTime(year, monthNo, 1, 0, 0, 0, DateTimeKind.Utc);
             var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
 
             var expenses = await _expenseRepository.Filter(x => x.EntryDate >= firstDayOfMonth &&

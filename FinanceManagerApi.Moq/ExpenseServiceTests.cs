@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using AutoMapper;
 using FinanceManagerApi.Models.DTO;
 using FinanceManagerApi.Models.Entity;
@@ -72,6 +73,90 @@ public class ExpenseServiceTests
             ),
             Times.Once
         );
+    }
+
+    [Fact]
+    public async Task GetExpensesOfAMonthAsync_ShouldUseSuppliedYearAndMonth()
+    {
+        // Arrange
+        var month = 10;
+        var year = 2024;
+        var inWindow = new Expense
+        {
+            Id = 1,
+            Amount = 50,
+            EntryDate = new DateTime(2024, 10, 15, 0, 0, 0, DateTimeKind.Utc)
+        };
+        var outOfWindowMonth = new Expense
+        {
+            Id = 2,
+            Amount = 50,
+            EntryDate = new DateTime(2024, 11, 1, 0, 0, 0, DateTimeKind.Utc)
+        };
+        var outOfWindowYear = new Expense
+        {
+            Id = 3,
+            Amount = 50,
+            EntryDate = new DateTime(2023, 10, 15, 0, 0, 0, DateTimeKind.Utc)
+        };
+
+        Expression<Func<Expense, bool>>? capturedPredicate = null;
+
+        _expenseRepositoryMock
+            .Setup(repo => repo.Filter(It.IsAny<Expression<Func<Expense, bool>>>(), "ExpenseCategory"))
+            .Callback<Expression<Func<Expense, bool>>, string>((p, _) => capturedPredicate = p)
+            .ReturnsAsync(new List<Expense> { inWindow });
+
+        _mapperMock
+            .Setup(mapper => mapper.Map<IEnumerable<ExpenseDto>>(It.IsAny<IEnumerable<Expense>>()))
+            .Returns((IEnumerable<Expense> src) => src.Select(e => new ExpenseDto { Id = e.Id, Amount = e.Amount }).ToList());
+
+        // Act
+        var result = await _sut.GetExpensesOfAMonthAsync(month, year);
+
+        // Assert
+        Assert.NotNull(capturedPredicate);
+        var compiled = capturedPredicate!.Compile();
+        Assert.True(compiled(inWindow));
+        Assert.False(compiled(outOfWindowMonth));
+        Assert.False(compiled(outOfWindowYear));
+        Assert.Single(result);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(13)]
+    [InlineData(-1)]
+    public async Task GetExpensesOfAMonthAsync_ShouldThrowArgumentOutOfRangeException_WhenMonthInvalid(int month)
+    {
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => _sut.GetExpensesOfAMonthAsync(month, DateTime.UtcNow.Year));
+        Assert.Equal("monthNo", ex.ParamName);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public async Task GetExpensesOfAMonthAsync_ShouldThrowArgumentOutOfRangeException_WhenYearTooSmall(int year)
+    {
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => _sut.GetExpensesOfAMonthAsync(10, year));
+        Assert.Equal("year", ex.ParamName);
+    }
+
+    [Fact]
+    public async Task GetExpensesOfAMonthAsync_ShouldThrowArgumentOutOfRangeException_WhenYearBeyondCurrentPlusOne()
+    {
+        // Arrange
+        var currentYear = DateTime.UtcNow.Year;
+        var tooFar = currentYear + 2;
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => _sut.GetExpensesOfAMonthAsync(10, tooFar));
+        Assert.Equal("year", ex.ParamName);
     }
 
 
