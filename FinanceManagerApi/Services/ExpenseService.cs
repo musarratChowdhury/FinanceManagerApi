@@ -83,8 +83,8 @@ public class ExpenseService : IExpenseService
 
 			}).Select(g => new ExpenseCategoryGroupDto()
 			{
-				CategoryId = (long)g.Key.ExpenseCategoryId,
-				CategoryName = g.Key.Name,
+				CategoryId = g.Key.ExpenseCategoryId ?? 0,
+				CategoryName = g.Key.Name ?? string.Empty,
 				Expenses = _mapper.Map<IEnumerable<ExpenseDto>>(g.ToList()),
 				TotalAmount = g.Sum(x=>x.Amount)
 			});
@@ -126,8 +126,8 @@ public class ExpenseService : IExpenseService
 
             }).Select(g => new ExpenseCategoryGroupDto()
             {
-                CategoryId = (long)g.Key.ExpenseCategoryId,
-                CategoryName = g.Key.Name,
+                CategoryId = g.Key.ExpenseCategoryId ?? 0,
+                CategoryName = g.Key.Name ?? string.Empty,
                 Expenses = _mapper.Map<IEnumerable<ExpenseDto>>(g.ToList()),
                 TotalAmount = g.Sum(x => x.Amount)
             });

@@ -21,10 +21,10 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore dependencies
-        run: dotnet restore FinanceManagerApi/FinanceManagerApi.csproj
+        run: dotnet restore FinanceManagerApi.sln
 
       - name: Build
-        run: dotnet build FinanceManagerApi/FinanceManagerApi.csproj -c Release --no-restore
+        run: dotnet build FinanceManagerApi.sln -c Release --no-restore
 
       - name: Test
         run: dotnet test FinanceManagerApi.sln -c Release --no-build --verbosity normal
