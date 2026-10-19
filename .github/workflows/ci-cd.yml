@@ -60,7 +60,7 @@ jobs:
             --startup-project FinanceManagerApi/FinanceManagerApi.csproj \
             --idempotent \
             --output sql/pending.sql
-          
+
           if [ -s sql/pending.sql ]; then
             echo "has_sql=true" >> $GITHUB_OUTPUT
             echo "Generated sql/pending.sql ($(wc -l < sql/pending.sql) lines)"
@@ -70,37 +70,100 @@ jobs:
             echo "No pending migrations — sql/pending.sql is empty"
           fi
 
-      - name: Apply migration SQL to CockroachDB (using cockroach sql CLI with URL)
+      - name: Apply migration SQL to CockroachDB
         if: steps.generate-sql.outputs.has_sql == 'true'
         env:
           COCKROACH_CONNECTION_STRING: ${{ secrets.COCKROACH_CONNECTION_STRING }}
         run: |
-          # Install cockroachdb CLI
           curl -Ls https://binaries.cockroachdb.com/cockroach-v24.2.0.linux-amd64.tgz | tar xz cockroach-v24.2.0.linux-amd64/cockroach
           export PATH="$PWD/cockroach-v24.2.0.linux-amd64:$PATH"
-          
-          # Convert the connection string to cockroach URL format
-          # COCKROACH_CONNECTION_STRING: Host=xxx;Port=26257;Username=yyy;Password=zzz;Database=financedb;SSL Mode=Require;Trust Server Certificate=true;
-          DB_HOST=$(echo "$COCKROACH_CONNECTION_STRING" | sed -n 's/.*Host=\([^;]*\).*/\1/p')
-          DB_PORT=$(echo "$COCKROACH_CONNECTION_STRING" | sed -n 's/.*Port=\([^;]*\).*/\1/p')
-          DB_USER=$(echo "$COCKROACH_CONNECTION_STRING" | sed -n 's/.*Username=\([^;]*\).*/\1/p')
-          DB_PASS=$(echo "$COCKROACH_CONNECTION_STRING" | sed -n 's/.*Password=\([^;]*\).*/\1/p')
-          DB_NAME=$(echo "$COCKROACH_CONNECTION_STRING" | sed -n 's/.*Database=\([^;]*\).*/\1/p')
-          
-          # Build cockroach URL with sslmode=verify-full (as you specified)
-          COCKROACH_URL="postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=verify-full"
-          
-          echo "Applying migrations to CockroachDB via cockroach sql CLI..."
-          
-          # Apply with --set=autocommit=on to avoid transaction block issues
-          # Use --set=statement_timeout=30s for safety
+
+          # Accept either an Npgsql connection string or a PostgreSQL URL.
+          # Credentials are URL-encoded so passwords containing URL characters work.
+          COCKROACH_URL="$(python3 - <<'PY'
+          import os
+          from urllib.parse import quote
+
+          raw = os.environ["COCKROACH_CONNECTION_STRING"].strip()
+          if raw.startswith(("postgres://", "postgresql://")):
+              print(raw)
+              raise SystemExit
+
+          values = {}
+          for part in raw.split(";"):
+              if "=" in part:
+                  key, value = part.split("=", 1)
+                  values[key.strip().lower()] = value.strip()
+
+          def get(*keys, default=""):
+              for key in keys:
+                  if key in values:
+                      return values[key]
+              return default
+
+          host = get("host")
+          port = get("port", default="26257")
+          user = get("username", "user", "userid")
+          password = get("password", "pwd")
+          database = get("database", "initial catalog")
+          if not host or not user or not database:
+              raise SystemExit("COCKROACH_CONNECTION_STRING must include Host, Username, and Database")
+
+          print(
+              f"postgresql://{quote(user, safe='')}:{quote(password, safe='')}"
+              f"@{host}:{port}/{quote(database, safe='')}?sslmode=require"
+          )
+          PY
+          )"
+
+          # CockroachDB rejects DDL inside EF's DO $EF$ blocks. Unwrap them and
+          # retain idempotency with CockroachDB's IF [NOT] EXISTS and ON CONFLICT.
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          source = Path("sql/pending.sql").read_text()
+          source = re.sub(r"(?is)START TRANSACTION;\s*|COMMIT;\s*", "", source)
+          source = re.sub(
+              r"(?is)DO \$EF\$\s*BEGIN\s*IF NOT EXISTS\(.*?\)\s*THEN\s*(.*?)\s*END IF;\s*END \$EF\$;",
+              r"\1",
+              source,
+          )
+          source = re.sub(r'(?i)CREATE TABLE\s+(?=")', "CREATE TABLE IF NOT EXISTS ", source)
+          source = re.sub(r'(?i)CREATE INDEX\s+(?=")', "CREATE INDEX IF NOT EXISTS ", source)
+          source = re.sub(
+              r'(?i)ALTER TABLE\s+("(?:[^"]|"")+")\s+ADD\s+CONSTRAINT\s+(?=")',
+              r"ALTER TABLE \1 ADD CONSTRAINT IF NOT EXISTS ",
+              source,
+          )
+          source = re.sub(
+              r'(?i)ALTER TABLE\s+("(?:[^"]|"")+")\s+DROP\s+CONSTRAINT\s+(?=")',
+              r"ALTER TABLE \1 DROP CONSTRAINT IF EXISTS ",
+              source,
+          )
+          source = re.sub(
+              r'(?i)ALTER TABLE\s+("(?:[^"]|"")+")\s+ADD\s+(?=")',
+              r"ALTER TABLE \1 ADD COLUMN IF NOT EXISTS ",
+              source,
+          )
+          source = re.sub(
+              r'(?is)INSERT INTO "__EFMigrationsHistory" '
+              r'\("MigrationId", "ProductVersion"\)\s*VALUES\s*'
+              r"\('([^']+)', '([^']+)'\);",
+              r'''INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+          VALUES ('\1', '\2') ON CONFLICT ("MigrationId") DO NOTHING;''',
+              source,
+          )
+          Path("sql/cockroach.sql").write_text(source)
+          PY
+
+          echo "Applying migrations to CockroachDB..."
           cockroach sql \
             --url="$COCKROACH_URL" \
-            --set=autocommit=on \
             --set=statement_timeout=30s \
-            --file=sql/pending.sql \
+            --file=sql/cockroach.sql \
             2>&1 | tee apply.log
-          
+
           EXIT_CODE=${PIPESTATUS[0]}
           if [ $EXIT_CODE -ne 0 ]; then
             echo "=== Migration apply failed, last 50 lines ==="
