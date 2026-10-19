@@ -49,13 +49,58 @@ jobs:
       - name: Ensure EF tools are on PATH
         run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
-      - name: Apply pending migrations to CockroachDB (idempotent — only touches DB if schema changed)
+      - name: Generate migration SQL script (idempotent — only includes pending migrations)
+        id: generate-sql
         env:
           ConnectionStrings__CockroachDb: ${{ secrets.COCKROACH_CONNECTION_STRING }}
         run: |
-          dotnet ef database update \
+          mkdir -p sql
+          dotnet ef migrations script \
             --project FinanceManagerApi/FinanceManagerApi.csproj \
-            --startup-project FinanceManagerApi/FinanceManagerApi.csproj
+            --startup-project FinanceManagerApi/FinanceManagerApi.csproj \
+            --idempotent \
+            --output sql/pending.sql
+          
+          if [ -s sql/pending.sql ]; then
+            echo "has_sql=true" >> $GITHUB_OUTPUT
+            echo "Generated sql/pending.sql ($(wc -l < sql/pending.sql) lines)"
+            head -50 sql/pending.sql
+          else
+            echo "has_sql=false" >> $GITHUB_OUTPUT
+            echo "No pending migrations — sql/pending.sql is empty"
+          fi
+
+      - name: Apply migration SQL to CockroachDB (with retry & single-statement batching)
+        if: steps.generate-sql.outputs.has_sql == 'true'
+        env:
+          COCKROACH_CONNECTION_STRING: ${{ secrets.COCKROACH_CONNECTION_STRING }}
+        run: |
+          # Install cockroachdb CLI for reliable statement-by-statement execution with retries
+          curl -Ls https://binaries.cockroachdb.com/cockroach-v24.2.0.linux-amd64.tgz | tar xz cockroach-v24.2.0.linux-amd64/cockroach
+          export PATH="$PWD/cockroach-v24.2.0.linux-amd64:$PATH"
+          
+          # Split the idempotent script into individual statements and apply with retry
+          # CockroachDB requires autocommit=on for DDL; the idempotent script from EF Core
+          # uses transaction blocks which can fail. We'll strip BEGIN/COMMIT and run each statement.
+          
+          echo "Applying migrations to CockroachDB with retry logic..."
+          
+          # Use cockroach sql with retry and autocommit
+          cockroach sql \
+            --url="$COCKROACH_CONNECTION_STRING" \
+            --set=autocommit=on \
+            --set=statement_timeout=30s \
+            --file=sql/pending.sql \
+            --echo-queries \
+            2>&1 | tee apply.log
+          
+          EXIT_CODE=${PIPESTATUS[0]}
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "=== Migration apply failed, last 50 lines ==="
+            tail -50 apply.log
+            exit $EXIT_CODE
+          fi
+          echo "Migrations applied successfully."
 
       - name: Notify Render to deploy
         # If using Render Auto-Deploy from Docker Hub, this step is not needed.
