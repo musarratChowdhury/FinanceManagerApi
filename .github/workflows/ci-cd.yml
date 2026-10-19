@@ -70,28 +70,35 @@ jobs:
             echo "No pending migrations — sql/pending.sql is empty"
           fi
 
-      - name: Apply migration SQL to CockroachDB (with retry & single-statement batching)
+      - name: Apply migration SQL to CockroachDB (using psql with autocommit + retry)
         if: steps.generate-sql.outputs.has_sql == 'true'
         env:
           COCKROACH_CONNECTION_STRING: ${{ secrets.COCKROACH_CONNECTION_STRING }}
         run: |
-          # Install cockroachdb CLI for reliable statement-by-statement execution with retries
-          curl -Ls https://binaries.cockroachdb.com/cockroach-v24.2.0.linux-amd64.tgz | tar xz cockroach-v24.2.0.linux-amd64/cockroach
-          export PATH="$PWD/cockroach-v24.2.0.linux-amd64:$PATH"
+          # Install postgresql client (psql) - available on ubuntu-latest
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
           
-          # Split the idempotent script into individual statements and apply with retry
-          # CockroachDB requires autocommit=on for DDL; the idempotent script from EF Core
-          # uses transaction blocks which can fail. We'll strip BEGIN/COMMIT and run each statement.
+          # Convert CockroachDB connection string to psql format
+          # COCKROACH_CONNECTION_STRING is like: Host=xxx;Port=26257;Username=yyy;Password=zzz;Database=financedb;SSL Mode=Require;Trust Server Certificate=true;
           
-          echo "Applying migrations to CockroachDB with retry logic..."
+          # Extract components
+          DB_HOST=$(echo "$COCKROACH_CONNECTION_STRING" | sed -n 's/.*Host=\([^;]*\).*/\1/p')
+          DB_PORT=$(echo "$COCKROACH_CONNECTION_STRING" | sed -n 's/.*Port=\([^;]*\).*/\1/p')
+          DB_USER=$(echo "$COCKROACH_CONNECTION_STRING" | sed -n 's/.*Username=\([^;]*\).*/\1/p')
+          DB_PASS=$(echo "$COCKROACH_CONNECTION_STRING" | sed -n 's/.*Password=\([^;]*\).*/\1/p')
+          DB_NAME=$(echo "$COCKROACH_CONNECTION_STRING" | sed -n 's/.*Database=\([^;]*\).*/\1/p')
           
-          # Use cockroach sql with retry and autocommit
-          cockroach sql \
-            --url="$COCKROACH_CONNECTION_STRING" \
-            --set=autocommit=on \
-            --set=statement_timeout=30s \
-            --file=sql/pending.sql \
-            --echo-queries \
+          export PGPASSWORD="$DB_PASS"
+          export PGSSLMODE=require
+          
+          echo "Applying migrations to CockroachDB via psql..."
+          
+          # Apply with autocommit=on (each statement auto-commits, no transaction block issues)
+          # Use ON_ERROR_STOP=off to continue past idempotent "already exists" statements
+          psql "host=$DB_HOST port=$DB_PORT user=$DB_USER dbname=$DB_NAME sslmode=require" \
+            -v ON_ERROR_STOP=off \
+            -v AUTOCOMMIT=on \
+            -f sql/pending.sql \
             2>&1 | tee apply.log
           
           EXIT_CODE=${PIPESTATUS[0]}
