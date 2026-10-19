@@ -32,7 +32,14 @@ public class ExpenseController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(long id)
     {
+        // 404 also covers "exists but belongs to someone else", so the endpoint cannot be used
+        // to probe which ids exist.
         var expense = await _expenseService.GetExpenseByIdAsync(id);
+        if (expense is null)
+        {
+            return NotFound();
+        }
+
         return Ok(expense);
     }
 
@@ -154,15 +161,16 @@ public class ExpenseController : ControllerBase
         }
         try
         {
-            await _expenseService.UpdateExpenseAsync(id, expenseDto);
-        }
-        catch (Exception)
-        {
-            if (await _expenseService.GetExpenseByIdAsync(id) == null)
+            var updated = await _expenseService.UpdateExpenseAsync(id, expenseDto);
+            if (!updated)
             {
                 return NotFound();
             }
-            return BadRequest();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            return BadRequest(e.Message);
         }
 
         return NoContent();
@@ -171,9 +179,11 @@ public class ExpenseController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(long id)
     {
-        var expense = await _expenseService.GetExpenseByIdAsync(id);
-
-        await _expenseService.DeleteExpenseAsync(id);
+        var deleted = await _expenseService.DeleteExpenseAsync(id);
+        if (!deleted)
+        {
+            return NotFound();
+        }
 
         return NoContent();
     }

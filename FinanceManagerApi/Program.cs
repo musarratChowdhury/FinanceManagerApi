@@ -76,9 +76,12 @@ builder.Services.AddAuthentication(options =>
 	});
 
 builder.Services.AddAuthorizationBuilder();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
 builder.Services.AddScoped<IReceiptService, ReceiptService>();
+builder.Services.AddScoped<IIncomeService, IncomeService>();
 
 builder.Services.Configure<IdentityOptions>(options =>
 {

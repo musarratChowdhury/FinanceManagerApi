@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Security.Claims;
 using FinanceManagerApi.Models.DTO;
 using FinanceManagerApi.Models.Entity;
 using FinanceManagerApi.Repository;
@@ -34,7 +35,14 @@ namespace FinanceManagerApi.Controllers
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(long id)
     {
+        // 404 also covers "exists but belongs to someone else", so the endpoint cannot be used
+        // to probe which ids exist.
         var Income = await _incomeService.GetIncomeByIdAsync(id);
+        if (Income is null)
+        {
+            return NotFound();
+        }
+
         return Ok(Income);
     }
 
@@ -45,6 +53,22 @@ namespace FinanceManagerApi.Controllers
         {
             var incomes = await _incomeService.GetIncomesOfThisMonthAsync();
 
+            return Ok(incomes);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            return BadRequest(e.Message);
+        }
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetIncomesOfAMonth(int month, int? year = null)
+    {
+        try
+        {
+            var resolvedYear = year ?? DateTime.UtcNow.Year;
+            var incomes = await _incomeService.GetIncomesOfAMonthAsync(month, resolvedYear);
             return Ok(incomes);
         }
         catch (Exception e)
@@ -103,6 +127,13 @@ namespace FinanceManagerApi.Controllers
     [HttpPost]
     public async Task<IActionResult> Create(IncomeDto incomeDto)
     {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        incomeDto.CreatedBy = new Guid(userId);
         await _incomeService.CreateIncomeAsync(incomeDto);
         return Ok();
     }
@@ -116,15 +147,16 @@ namespace FinanceManagerApi.Controllers
         }
         try
         {
-            await _incomeService.UpdateIncomeAsync(id, incomeDto);
-        }
-        catch (Exception)
-        {
-            if (await _incomeService.GetIncomeByIdAsync(id) == null)
+            var updated = await _incomeService.UpdateIncomeAsync(id, incomeDto);
+            if (!updated)
             {
                 return NotFound();
             }
-            return BadRequest();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            return BadRequest(e.Message);
         }
 
         return NoContent();
@@ -133,9 +165,11 @@ namespace FinanceManagerApi.Controllers
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(long id)
     {
-        var Income = await _incomeService.GetIncomeByIdAsync(id);
-
-        await _incomeService.DeleteIncomeAsync(id);
+        var deleted = await _incomeService.DeleteIncomeAsync(id);
+        if (!deleted)
+        {
+            return NotFound();
+        }
 
         return NoContent();
     }

@@ -10,5 +10,6 @@ public class ExpenseProfile : Profile
     {
         CreateMap<Expense, ExpenseDto>().ReverseMap();
         CreateMap<Receipt, ReceiptDto>().ReverseMap();
+        CreateMap<Income, IncomeDto>().ReverseMap();
     }
 }
