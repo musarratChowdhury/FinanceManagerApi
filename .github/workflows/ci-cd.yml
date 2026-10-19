@@ -70,35 +70,35 @@ jobs:
             echo "No pending migrations — sql/pending.sql is empty"
           fi
 
-      - name: Apply migration SQL to CockroachDB (using psql with autocommit + retry)
+      - name: Apply migration SQL to CockroachDB (using cockroach sql CLI with URL)
         if: steps.generate-sql.outputs.has_sql == 'true'
         env:
           COCKROACH_CONNECTION_STRING: ${{ secrets.COCKROACH_CONNECTION_STRING }}
         run: |
-          # Install postgresql client (psql) - available on ubuntu-latest
-          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+          # Install cockroachdb CLI
+          curl -Ls https://binaries.cockroachdb.com/cockroach-v24.2.0.linux-amd64.tgz | tar xz cockroach-v24.2.0.linux-amd64/cockroach
+          export PATH="$PWD/cockroach-v24.2.0.linux-amd64:$PATH"
           
-          # Convert CockroachDB connection string to psql format
-          # COCKROACH_CONNECTION_STRING is like: Host=xxx;Port=26257;Username=yyy;Password=zzz;Database=financedb;SSL Mode=Require;Trust Server Certificate=true;
-          
-          # Extract components
+          # Convert the connection string to cockroach URL format
+          # COCKROACH_CONNECTION_STRING: Host=xxx;Port=26257;Username=yyy;Password=zzz;Database=financedb;SSL Mode=Require;Trust Server Certificate=true;
           DB_HOST=$(echo "$COCKROACH_CONNECTION_STRING" | sed -n 's/.*Host=\([^;]*\).*/\1/p')
           DB_PORT=$(echo "$COCKROACH_CONNECTION_STRING" | sed -n 's/.*Port=\([^;]*\).*/\1/p')
           DB_USER=$(echo "$COCKROACH_CONNECTION_STRING" | sed -n 's/.*Username=\([^;]*\).*/\1/p')
           DB_PASS=$(echo "$COCKROACH_CONNECTION_STRING" | sed -n 's/.*Password=\([^;]*\).*/\1/p')
           DB_NAME=$(echo "$COCKROACH_CONNECTION_STRING" | sed -n 's/.*Database=\([^;]*\).*/\1/p')
           
-          export PGPASSWORD="$DB_PASS"
-          export PGSSLMODE=require
+          # Build cockroach URL with sslmode=verify-full (as you specified)
+          COCKROACH_URL="postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=verify-full"
           
-          echo "Applying migrations to CockroachDB via psql..."
+          echo "Applying migrations to CockroachDB via cockroach sql CLI..."
           
-          # Apply with autocommit=on (each statement auto-commits, no transaction block issues)
-          # Use ON_ERROR_STOP=off to continue past idempotent "already exists" statements
-          psql "host=$DB_HOST port=$DB_PORT user=$DB_USER dbname=$DB_NAME sslmode=require" \
-            -v ON_ERROR_STOP=off \
-            -v AUTOCOMMIT=on \
-            -f sql/pending.sql \
+          # Apply with --set=autocommit=on to avoid transaction block issues
+          # Use --set=statement_timeout=30s for safety
+          cockroach sql \
+            --url="$COCKROACH_URL" \
+            --set=autocommit=on \
+            --set=statement_timeout=30s \
+            --file=sql/pending.sql \
             2>&1 | tee apply.log
           
           EXIT_CODE=${PIPESTATUS[0]}
