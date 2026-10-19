@@ -1,0 +1,71 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore FinanceManagerApi/FinanceManagerApi.csproj
+
+      - name: Build
+        run: dotnet build FinanceManagerApi/FinanceManagerApi.csproj -c Release --no-restore
+
+      - name: Test
+        run: dotnet test FinanceManagerApi.sln -c Release --no-build --verbosity normal
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./FinanceManagerApi/Dockerfile
+          push: true
+          tags: musarratchowdhury/financemanagerapi:latest
+
+      - name: Install EF Core tool globally
+        run: dotnet tool install --global dotnet-ef --version 10.*
+
+      - name: Ensure EF tools are on PATH
+        run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      - name: Apply pending migrations to CockroachDB (idempotent — only touches DB if schema changed)
+        env:
+          ConnectionStrings__CockroachDb: ${{ secrets.COCKROACH_CONNECTION_STRING }}
+        run: |
+          dotnet ef database update \
+            --project FinanceManagerApi/FinanceManagerApi.csproj \
+            --startup-project FinanceManagerApi/FinanceManagerApi.csproj
+
+      - name: Notify Render to deploy
+        # If using Render Auto-Deploy from Docker Hub, this step is not needed.
+        # Only add RENDER_DEPLOY_HOOK_URL if you want to trigger an immediate deploy
+        # manually (e.g., Render webhook URL configured in your Render service).
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -n "$RENDER_DEPLOY_HOOK_URL" ]; then
+            curl -X POST "$RENDER_DEPLOY_HOOK_URL"
+          else
+            echo "Skipping: no webhook set. Render will detect the new image on its own schedule."
+          fi
