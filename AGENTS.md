@@ -36,6 +36,7 @@ Run from repo root unless noted.
 
 - **The Dockerfile is on .NET 10** (`mcr.microsoft.com/dotnet/aspnet:10.0` / `sdk:10.0`), matching `net10.0` in `FinanceManagerApi.csproj`. It used to be .NET 7, which broke the image build — if you ever see "the image pulls the wrong runtime", check the `FROM` tags first.
 - **Committed secrets removed.** The prod `CockroachDb` password and `JWT:Secret` have been moved out of `FinanceManagerApi/appsettings.json` into user-secrets (id `c079809c-038e-401e-b5af-38011dd5f18e`). `FinanceManagerApi/CockroachConnect.txt` still contains a copy of the prod connection string with the real password — treat it as compromised and rotate the password at Cockroach Cloud when convenient.
+- **The credential copies in this repo have drifted apart.** `FinanceManagerApi/CockroachConnect.txt` holds a **stale** password — the same stale copy that broke the CI pipeline (SQLSTATE 28P01) on 2026-10-19, and the GitHub secret had to be updated on 2026-10-22. The checked-in `appsettings.json` has only a localhost placeholder, and the user-secrets are **not configured on this machine**. The only current copy left on disk is in an old build output (`FinanceManagerApi/bin/Debug/net7.0/appsettings.json`). Use `scripts/check-sequence.py`, which tries each source and uses the first that authenticates, and rotate both passwords at Cockroach Cloud.
 - **JWT lifetime is hardcoded** to 3 hours in `AuthenticationController.GenerateJWTTokenAsync` (`DateTime.Now.AddHours(3)`). The `AccessExpiration`/`RefreshExpiration` values in `appsettings.json` are not actually consumed.
 - **Password policy is permissive**: 6 chars, no complexity requirements (see `IdentityOptions` in `Program.cs`). Don't add new password complexity without confirming with the maintainer.
 - **CORS is fully open** (`AllowAnyOrigin/Method/Header`, policy name `AllowSites`). Acceptable for the current deployment behind nginx, but don't propagate this pattern to new surfaces.
@@ -109,6 +110,28 @@ the console output.
   `SELECT setval('"Expenses_Id_seq"', (SELECT COALESCE(MAX("Id"),0) FROM "Expenses") + 1, false);`
   A sequence *ahead* of `max(Id)` is harmless (just id gaps); behind it is the failure mode.
 - Inspect the cluster directly with the `cockroachdb-cloud` MCP (`list_clusters`, `get_cluster`) or `psycopg2` against the same connection string.
+
+## Project scripts (`scripts/`) — reuse these, don't recreate them
+
+- **`scripts/rewrite-migrations.py`** — the EF → CockroachDB SQL rewrite. **The CI workflow calls this** (`python3 scripts/rewrite-migrations.py sql/pending.sql sql/cockroach.sql`); edit the script, not the workflow YAML. Handles the `DO $EF$` blocks, the `dotnet ef` UTF-8 BOM, the idempotency rewrites and the `SET statement_timeout`. Stdlib only, so it runs on the CI runner unchanged.
+  ```
+  dotnet ef migrations script --project FinanceManagerApi/FinanceManagerApi.csproj --startup-project FinanceManagerApi/FinanceManagerApi.csproj --idempotent --output sql/pending.sql
+  python scripts/rewrite-migrations.py sql/pending.sql sql/cockroach.sql
+  ```
+- **`scripts/check-sequence.py`** — sequence-drift detector for every table. Prints `max(Id)` vs the sequence's next value and the `setval` fix; `--fix` applies it.
+  ```
+  python scripts/check-sequence.py          # report
+  python scripts/check-sequence.py --fix    # repair
+  ```
+  It tries several credential sources and uses the first that authenticates, because **the copies of the password in this repo drift** — `FinanceManagerApi/CockroachConnect.txt` holds a **stale** password (the same stale copy that broke the CI pipeline). It also prints which source it used.
+- **`scripts/probe-api.py`** — probes the live API with both date formats (`yyyy-MM-dd` and `yyyy-MM-ddT00:00:00.000Z`) and deletes the rows it creates. Tells you whether the deployed API normalises an Unspecified date yet.
+  ```
+  python scripts/probe-api.py --api https://fmapi.muhit.dev
+  ```
+- **`scripts/run-local-dev.ps1`** — starts the API in **Development** mode so a 500 returns the real exception and stack trace instead of "An error occurred, please try again later".
+  ```
+  ./scripts/run-local-dev.ps1
+  ```
 
 ## Project skills (`.opencode/skills/`)
 
