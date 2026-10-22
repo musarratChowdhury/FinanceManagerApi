@@ -118,11 +118,20 @@ jobs:
 
           # CockroachDB rejects DDL inside EF's DO $EF$ blocks. Unwrap them and
           # retain idempotency with CockroachDB's IF [NOT] EXISTS and ON CONFLICT.
+          #
+          # Two traps this has to dodge:
+          #  - `dotnet ef migrations script` writes a UTF-8 BOM. The cockroach CLI
+          #    reads the file literally, so the BOM lands in front of the first
+          #    statement and it dies with "syntax error". Read with utf-8-sig
+          #    (strips it) and write back with plain utf-8 (adds none).
+          #  - `cockroach sql --set` configures CLIENT-SIDE options (display_format,
+          #    errexit, ...), not server session variables, so --set=statement_timeout
+          #    fails with "unknown variable name". The timeout is set with SQL below.
           python3 - <<'PY'
           import re
           from pathlib import Path
 
-          source = Path("sql/pending.sql").read_text()
+          source = Path("sql/pending.sql").read_text(encoding="utf-8-sig")
           source = re.sub(r"(?is)START TRANSACTION;\s*|COMMIT;\s*", "", source)
           source = re.sub(
               r"(?is)DO \$EF\$\s*BEGIN\s*IF NOT EXISTS\(.*?\)\s*THEN\s*(.*?)\s*END IF;\s*END \$EF\$;",
@@ -154,13 +163,14 @@ jobs:
           VALUES ('\1', '\2') ON CONFLICT ("MigrationId") DO NOTHING;''',
               source,
           )
-          Path("sql/cockroach.sql").write_text(source)
+          # Bound the run so a wedged DDL statement cannot hang the job forever.
+          source = "SET statement_timeout = '30s';\n" + source
+          Path("sql/cockroach.sql").write_text(source, encoding="utf-8")
           PY
 
           echo "Applying migrations to CockroachDB..."
           cockroach sql \
             --url="$COCKROACH_URL" \
-            --set=statement_timeout=30s \
             --file=sql/cockroach.sql \
             2>&1 | tee apply.log
 

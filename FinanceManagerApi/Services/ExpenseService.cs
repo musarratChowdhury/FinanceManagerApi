@@ -256,6 +256,7 @@ public class ExpenseService : IExpenseService
     {
         try
         {
+            NormalizeDateKinds(expenseDto);
             var expense = _mapper.Map<Expense>(expenseDto);
             // Server-owned: whatever the payload claimed, the row belongs to the caller.
             expense.CreatedBy = _currentUser.UserId;
@@ -267,6 +268,25 @@ public class ExpenseService : IExpenseService
             throw;
         }
     }
+
+    /// <summary>
+    /// Npgsql refuses to write a DateTime whose Kind is not Utc into a `timestamp with
+    /// time zone` column, and a JSON date-only string ("2026-10-22") deserialises with
+    /// Kind=Unspecified. Left alone that turns a valid client payload into a 500, so a
+    /// date without an offset is pinned to UTC midnight instead.
+    /// </summary>
+    private static void NormalizeDateKinds(ExpenseDto expenseDto)
+    {
+        if (expenseDto.ExpenseDate.HasValue && expenseDto.ExpenseDate.Value.Kind == DateTimeKind.Unspecified)
+        {
+            expenseDto.ExpenseDate = DateTime.SpecifyKind(expenseDto.ExpenseDate.Value, DateTimeKind.Utc);
+        }
+
+        if (expenseDto.EntryDate.Kind == DateTimeKind.Unspecified)
+        {
+            expenseDto.EntryDate = DateTime.SpecifyKind(expenseDto.EntryDate, DateTimeKind.Utc);
+        }
+    }
     
     
     
@@ -275,6 +295,7 @@ public class ExpenseService : IExpenseService
     {
         try
         {
+            NormalizeDateKinds(expenseDto);
             var expense = (await _expenseRepository.Filter(x => x.Id == id && x.CreatedBy == _currentUser.UserId))
                 .FirstOrDefault();
 
