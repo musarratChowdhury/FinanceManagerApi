@@ -1,11 +1,31 @@
 ---
 name: api-deployment
-description: Use ONLY when building, publishing, or verifying the FinanceManagerApi Docker image for Docker Hub and Render deployment.
+description: Use ONLY when building, publishing, or verifying the FinanceManagerApi Docker image for Docker Hub and Render deployment. Prefer the CI/CD pipeline on push to main; this covers the manual build-and-push path and how to verify what is actually running.
+compatibility: opencode
+metadata:
+  project: FinanceManagerApi
+  pipeline: docker-hub-render
 ---
 
 # FinanceManager API Deployment
 
 Use this skill for deployment requests involving the ASP.NET Core API in this repository. The production image is published as `musarratchowdhury/financemanagerapi` and Render pulls the `latest` tag according to the deployment documentation.
+
+## Prefer the CI/CD pipeline
+
+Pushing to `main` runs `.github/workflows/ci-cd.yml`, which builds, tests,
+pushes the image, applies the EF migrations to CockroachDB and notifies Render.
+**Use that path unless the user explicitly asks for a manual push** — a manual
+push skips the migration step and can ship an image whose schema does not
+match the code.
+
+Two things the pipeline does not tell you:
+
+- `RENDER_DEPLOY_HOOK_URL` is not configured, so Render polls Docker Hub on its
+  own schedule. A green workflow does **not** mean the API is live — wait a few
+  minutes and probe the API for the behaviour you changed.
+- The image is pushed **before** the migration step, so a failed migration
+  still leaves a new image on Docker Hub that Render may auto-deploy.
 
 ## Safety Rules
 
@@ -13,7 +33,7 @@ Use this skill for deployment requests involving the ASP.NET Core API in this re
 - Do not deploy a dirty worktree without explicitly telling the user which uncommitted files will be included and receiving confirmation.
 - Do not push an image until tests and the solution build pass.
 - Use the repository root as the Docker build context.
-- Do not run database migrations during image build.
+- Do not run database migrations during image build — see the `cockroach-ef-migrations` skill for the supported path.
 - Treat a Docker Hub push as an external side effect and require confirmation unless the user explicitly requested the push.
 
 ## Preflight

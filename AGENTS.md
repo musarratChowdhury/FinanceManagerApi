@@ -34,7 +34,7 @@ Run from repo root unless noted.
 
 ## Gotchas that will burn you
 
-- **Dockerfile base images are .NET 7** (`mcr.microsoft.com/dotnet/aspnet:7.0` / `sdk:7.0`) while `FinanceManagerApi.csproj` targets `net10.0`. Building the image against the current csproj will fail or pull the wrong runtime. Update the `FROM` tags to `8.0`/later (and re-test) before touching Docker.
+- **The Dockerfile is on .NET 10** (`mcr.microsoft.com/dotnet/aspnet:10.0` / `sdk:10.0`), matching `net10.0` in `FinanceManagerApi.csproj`. It used to be .NET 7, which broke the image build — if you ever see "the image pulls the wrong runtime", check the `FROM` tags first.
 - **Committed secrets removed.** The prod `CockroachDb` password and `JWT:Secret` have been moved out of `FinanceManagerApi/appsettings.json` into user-secrets (id `c079809c-038e-401e-b5af-38011dd5f18e`). `FinanceManagerApi/CockroachConnect.txt` still contains a copy of the prod connection string with the real password — treat it as compromised and rotate the password at Cockroach Cloud when convenient.
 - **JWT lifetime is hardcoded** to 3 hours in `AuthenticationController.GenerateJWTTokenAsync` (`DateTime.Now.AddHours(3)`). The `AccessExpiration`/`RefreshExpiration` values in `appsettings.json` are not actually consumed.
 - **Password policy is permissive**: 6 chars, no complexity requirements (see `IdentityOptions` in `Program.cs`). Don't add new password complexity without confirming with the maintainer.
@@ -55,8 +55,68 @@ Run from repo root unless noted.
 
 - Entities in `Models/Entity/`, DTOs in `Models/DTO/`, error/response shapes in `Models/Errors/`.
 - Controllers are under `[Authorize]` by default; authentication-free endpoints must be added to `AuthenticationController` or opted out explicitly.
-- `commands.txt` at repo root documents the manual AWS/EC2 deploy dance (`docker-compose down` → `docker-compose up` after `git pull`). Use it as the source of truth for deploy steps — there is no CI.
+- `commands.txt` at repo root documents the manual AWS/EC2 deploy dance (`docker-compose down` → `docker-compose up` after `git pull`). Use it as the source of truth for deploy steps — the CI/CD pipeline (below) is the newer path.
 - `db-fresh.ps1` at repo root — local DB migration script (see "Local DB" section).
+
+## CI/CD (`.github/workflows/ci-cd.yml`)
+
+There **is** a pipeline — `commands.txt` predates it. On push to `main` (and on
+`workflow_dispatch`): build → test → push the Docker image to
+`musarratchowdhury/financemanagerapi` → generate the EF migration SQL → apply
+it to CockroachDB → notify Render.
+
+- Secrets: `COCKROACH_CONNECTION_STRING`, `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `RENDER_DEPLOY_HOOK_URL` (optional — empty means Render polls Docker Hub on its own schedule, which takes a few minutes).
+- **`RENDER_DEPLOY_HOOK_URL` is not set**, so a green CI run does not mean the API is live yet — Render picks up the new image on its own schedule.
+- The step order matters: the Docker image is pushed **before** the migration step, so a failed migration leaves a new image on Docker Hub that Render may still auto-deploy.
+- `dotnet ef migrations script --idempotent` regenerates the **whole** schema every run (not just pending migrations). The apply step is therefore made idempotent by rewriting the SQL — see the "CockroachDB migrations" section below.
+
+## CockroachDB migrations (the apply step has two traps)
+
+- **`cockroach sql --set=NAME=VALUE` configures CLIENT-SIDE options** (display_format, errexit, echo, …), *not* server session variables. `--set=statement_timeout=30s` fails with `ERROR: -e: unknown variable name: "statement_timeout"`. Set the timeout with SQL instead: `SET statement_timeout = '30s';`.
+- **`dotnet ef migrations script --output` writes a UTF-8 BOM.** The cockroach CLI reads the file literally, so the BOM lands in front of the first statement and it dies with `syntax error`. The rewrite step reads with `encoding="utf-8-sig"` (strips it) and writes back with `encoding="utf-8"` (adds none).
+- EF's `DO $EF$ … END $EF$` blocks are not valid CockroachDB DDL — the rewrite unwraps them and adds `IF [NOT] EXISTS` / `ON CONFLICT DO NOTHING` so the script can be re-applied.
+- **No Windows cockroach binaries are published.** To exercise the CLI locally, run it in Docker: `docker run --rm -v "<dir>:/sql" cockroachdb/cockroach:v24.2.0 sql --url="postgresql://user:pass@host:26257/db?sslmode=require" --file=/sql/cockroach.sql`.
+- A `.sql` file written by PowerShell `Out-File -Encoding utf8` carries a BOM too — write generated SQL with a BOM-less writer (`python` `write_text(..., encoding="utf-8")`).
+
+## Diagnosing a generic 500
+
+`ExceptionMiddleware` returns `{"message":"An error occurred, please try again later"}`
+in Production and **the full exception + stack trace in Development**. To see the
+real cause, run the API locally in Development against the same database:
+
+```
+$env:ConnectionStrings__CockroachDb="<prod conn string>"
+$env:JWT__Secret="<any local secret>"; $env:JWT__Issuer="http://localhost:5006"; $env:JWT__Audience="user"
+$env:ASPNETCORE_ENVIRONMENT="Development"; $env:ASPNETCORE_URLS="http://localhost:5006"
+dotnet run --project FinanceManagerApi --no-launch-profile
+```
+
+`DbInitializer` only seeds when the tables are empty, so pointing it at the prod
+database is safe (it prints "already exists - skipping"). Log in through
+`POST /api/Authentication/login` to get a token with your own secret, then
+reproduce the failing call. The EF/Npgsql command and the inner exception are in
+the console output.
+
+## Npgsql / date handling
+
+- **Npgsql (6+) refuses to write a `DateTime` whose `Kind` is not `Utc` into a `timestamp with time zone` column** → `ArgumentException: Cannot write DateTime with Kind=Unspecified …`. A JSON date-only string (`"2026-10-22"`) deserialises with `Kind=Unspecified`, so any client sending a bare date gets a 500. `ExpenseService.NormalizeDateKinds` pins an Unspecified `ExpenseDate`/`EntryDate` to UTC before saving — keep that, and normalise new date-carrying services the same way.
+- `Expense.EntryDate` is `DateTime.UtcNow` (Utc) but `Income.EntryDate` and `IncomeCategory.EntryDate` are `DateTime.Now` (**Local**) — Npgsql rejects Local for `timestamptz` too. Change them to `UtcNow` if those tables are ever written.
+
+## CockroachDB schema notes
+
+- `Expenses.CreatedBy` is a plain `uuid` column with **no foreign key** — the ownership check is done in code (`x.CreatedBy == _currentUser.UserId`). `Expenses.ExpenseCategoryId` → `ExpenseCategories.Id` and `Expenses.ReceiptId` → `Receipts.Id` **do** have FKs, so a bad id fails the insert.
+- **Sequences can drift behind `max(Id)`** — a failed insert still consumes the sequence on some paths, and CockroachDB's `SERIAL`/`IDENTITY` columns will then raise a duplicate-key error on the next insert. Symptom: `POST /api/Expense/Create` returns 500 while reads work. Fix:
+  `SELECT setval('"Expenses_Id_seq"', (SELECT COALESCE(MAX("Id"),0) FROM "Expenses") + 1, false);`
+  A sequence *ahead* of `max(Id)` is harmless (just id gaps); behind it is the failure mode.
+- Inspect the cluster directly with the `cockroachdb-cloud` MCP (`list_clusters`, `get_cluster`) or `psycopg2` against the same connection string.
+
+## Project skills (`.opencode/skills/`)
+
+- **`api-500-triage`** — get the real exception behind the generic 500: run the API locally in Development against the real database, read the Npgsql/EF inner exception, inspect the schema, fix sequence drift.
+- **`cockroach-ef-migrations`** — generate and apply EF migrations to CockroachDB safely: the `--set` client-option trap, the UTF-8 BOM from `dotnet ef`, rewriting EF DDL blocks into idempotent CockroachDB SQL, verifying locally in Docker.
+- **`api-deployment`** — the manual Docker Hub → Render path. Prefer the CI/CD pipeline on push to `main`.
+
+Load them with the `skill` tool by name.
 
 ## Reference
 
