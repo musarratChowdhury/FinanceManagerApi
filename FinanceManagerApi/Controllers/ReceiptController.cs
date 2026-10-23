@@ -30,9 +30,9 @@ public class ReceiptController : ControllerBase
 
     [HttpPost("Scan")]
     [RequestSizeLimit(10 * 1024 * 1024)]
-    public async Task<IActionResult> Scan(IFormFile file, CancellationToken cancellationToken)
+    public async Task<IActionResult> Scan([FromForm] IFormFile? file, CancellationToken cancellationToken)
     {
-        if (file.Length == 0)
+        if (file is null || file.Length == 0)
         {
             return BadRequest("A receipt file is required.");
         }

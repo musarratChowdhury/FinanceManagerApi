@@ -12,6 +12,8 @@ public interface IGeminiReceiptScanService
 
 public sealed class GeminiReceiptScanService : IGeminiReceiptScanService
 {
+    private static readonly TimeSpan AttemptTimeout = TimeSpan.FromSeconds(20);
+
     private static readonly string[] Models =
     [
         "gemini-3.5-flash",
@@ -52,6 +54,9 @@ public sealed class GeminiReceiptScanService : IGeminiReceiptScanService
 
         foreach (var model in Models)
         {
+            using var attemptCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            attemptCancellation.CancelAfter(AttemptTimeout);
+
             try
             {
                 using var request = new HttpRequestMessage(
@@ -86,18 +91,28 @@ public sealed class GeminiReceiptScanService : IGeminiReceiptScanService
                     }
                 });
 
-                using var response = await _httpClient.SendAsync(request, cancellationToken);
+                using var response = await _httpClient.SendAsync(
+                    request,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    attemptCancellation.Token);
                 if (!response.IsSuccessStatusCode)
                 {
                     var body = await response.Content.ReadAsStringAsync(cancellationToken);
                     lastException = new HttpRequestException(
                         $"Gemini model {model} returned {(int)response.StatusCode}: {body}");
                     _logger.LogWarning(lastException, "Gemini receipt scan failed for model {Model}", model);
+                    if ((int)response.StatusCode is >= 400 and < 500 &&
+                        response.StatusCode != System.Net.HttpStatusCode.RequestTimeout &&
+                        response.StatusCode != System.Net.HttpStatusCode.TooManyRequests)
+                    {
+                        break;
+                    }
+
                     continue;
                 }
 
                 using var document = JsonDocument.Parse(
-                    await response.Content.ReadAsStreamAsync(cancellationToken));
+                    await response.Content.ReadAsStreamAsync(attemptCancellation.Token));
                 var text = document.RootElement
                     .GetProperty("candidates")[0]
                     .GetProperty("content")
@@ -116,6 +131,14 @@ public sealed class GeminiReceiptScanService : IGeminiReceiptScanService
                 }
 
                 return Normalize(result);
+            }
+            catch (OperationCanceledException exception) when (
+                !cancellationToken.IsCancellationRequested)
+            {
+                lastException = new TimeoutException(
+                    $"Gemini model {model} did not respond within {AttemptTimeout.TotalSeconds:0} seconds.",
+                    exception);
+                _logger.LogWarning(lastException, "Gemini receipt scan timed out for model {Model}", model);
             }
             catch (Exception exception) when (exception is HttpRequestException or JsonException or InvalidOperationException)
             {
