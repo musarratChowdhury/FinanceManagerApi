@@ -25,4 +25,8 @@
       <ProjectReference Include="..\FinanceManagerApi\FinanceManagerApi.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Include="Samples\*.jpg" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
 </Project>

@@ -14,12 +14,41 @@ namespace FinanceManagerApi.Controllers;
 public class ReceiptController : ControllerBase
 {
     private readonly IReceiptService _receiptService;
+    private readonly IGeminiReceiptScanService _geminiReceiptScanService;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public ReceiptController(IGenericRepository<Receipt> receiptRepository, IReceiptService receiptService, IHttpContextAccessor httpContextAccessor)
+    public ReceiptController(
+        IGenericRepository<Receipt> receiptRepository,
+        IReceiptService receiptService,
+        IGeminiReceiptScanService geminiReceiptScanService,
+        IHttpContextAccessor httpContextAccessor)
     {
         _receiptService = receiptService;
+        _geminiReceiptScanService = geminiReceiptScanService;
         _httpContextAccessor = httpContextAccessor;
+    }
+
+    [HttpPost("Scan")]
+    [RequestSizeLimit(10 * 1024 * 1024)]
+    public async Task<IActionResult> Scan(IFormFile file, CancellationToken cancellationToken)
+    {
+        if (file.Length == 0)
+        {
+            return BadRequest("A receipt file is required.");
+        }
+
+        if (!file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(file.ContentType, "application/pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest("Only receipt images and PDF files are supported.");
+        }
+
+        await using var stream = file.OpenReadStream();
+        var result = await _geminiReceiptScanService.ScanAsync(
+            stream,
+            file.ContentType,
+            cancellationToken);
+        return Ok(result);
     }
 
     [HttpGet]
