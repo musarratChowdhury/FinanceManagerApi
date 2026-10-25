@@ -16,9 +16,8 @@ public sealed class GeminiReceiptScanService : IGeminiReceiptScanService
 
     private static readonly string[] Models =
     [
-        "gemini-3.5-flash",
+        "gemini-3.8-flash",
         "gemini-flash-latest",
-        "gemini-2.5-flash"
     ];
 
     private readonly HttpClient _httpClient;
@@ -102,6 +101,7 @@ public sealed class GeminiReceiptScanService : IGeminiReceiptScanService
                         $"Gemini model {model} returned {(int)response.StatusCode}: {body}");
                     _logger.LogWarning(lastException, "Gemini receipt scan failed for model {Model}", model);
                     if ((int)response.StatusCode is >= 400 and < 500 &&
+                        response.StatusCode != System.Net.HttpStatusCode.NotFound &&
                         response.StatusCode != System.Net.HttpStatusCode.RequestTimeout &&
                         response.StatusCode != System.Net.HttpStatusCode.TooManyRequests)
                     {

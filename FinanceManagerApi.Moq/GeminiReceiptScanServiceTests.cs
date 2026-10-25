@@ -39,12 +39,16 @@ public sealed class GeminiReceiptScanServiceTests
         Assert.False(result.NeedsReview);
         Assert.Contains("inline_data", handler.RequestBody);
         Assert.Equal("test-key", handler.ApiKey);
+        Assert.Equal(
+            "/v1beta/models/gemini-3.8-flash:generateContent",
+            handler.RequestUri?.AbsolutePath);
     }
 
     private sealed class GeminiHandler : HttpMessageHandler
     {
         public string RequestBody { get; private set; } = string.Empty;
         public string? ApiKey { get; private set; }
+        public Uri? RequestUri { get; private set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
@@ -52,6 +56,7 @@ public sealed class GeminiReceiptScanServiceTests
         {
             RequestBody = await request.Content!.ReadAsStringAsync(cancellationToken);
             ApiKey = request.Headers.GetValues("x-goog-api-key").Single();
+            RequestUri = request.RequestUri;
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(
