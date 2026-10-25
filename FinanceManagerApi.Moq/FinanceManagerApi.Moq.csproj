@@ -27,6 +27,10 @@
 
     <ItemGroup>
       <None Include="Samples\*.jpg" CopyToOutputDirectory="PreserveNewest" />
+      <!-- The API's probe fixture, so ProbeAsync tests exercise the receipt path. -->
+      <None Include="..\FinanceManagerApi\Samples\receipt-probe.jpg"
+            Link="Samples\receipt-probe.jpg"
+            CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
 </Project>

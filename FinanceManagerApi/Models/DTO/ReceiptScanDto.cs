@@ -14,6 +14,12 @@ public sealed class ReceiptScanDto
     public string? RawTotalText { get; init; }
     public bool ItemsMatchTotal { get; init; }
     public bool NeedsReview { get; init; }
+
+    /// <summary>
+    /// The model that actually answered. Differs from the requested model when
+    /// the chain fell back to the server default.
+    /// </summary>
+    public string? ModelUsed { get; init; }
 }
 
 public sealed class ReceiptScanItemDto

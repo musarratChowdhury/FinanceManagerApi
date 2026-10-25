@@ -41,6 +41,9 @@ Run from repo root unless noted.
 - **Password policy is permissive**: 6 chars, no complexity requirements (see `IdentityOptions` in `Program.cs`). Don't add new password complexity without confirming with the maintainer.
 - **CORS is fully open** (`AllowAnyOrigin/Method/Header`, policy name `AllowSites`). Acceptable for the current deployment behind nginx, but don't propagate this pattern to new surfaces.
 - **`WeatherForecast.cs` and `FinanceManagerApi.http` are leftover scaffolding** from the ASP.NET template. They are not wired into `Program.cs`. Removing them is fine but not required.
+- **`gemma-4-26b-a4b-it` needs 9-12 s per receipt.** Measured against the bundled 238 KB probe image: **12.2 s cold**, 8.6 s and 9.1 s warm. `Gemini:AttemptTimeoutSeconds` defaults to 10, so the first, cold attempt can time out and the sweep silently falls through to the next model. Raise it to 15 if cold starts must pass — the probe and a real scan share the same budget.
+- **Don't read `GEMINI_API_KEY` with `Environment.GetEnvironmentVariable`.** `WebApplication.CreateBuilder` already layers environment variables into `IConfiguration`, so a direct read is redundant *and* makes in-memory-config unit tests depend on the developer's machine (the key is set locally, so a "missing key" test passes for the wrong reason). Configuration is the single source of truth.
+- **`HttpClient` in the unit tests must not be disposed** (`using var client = new HttpClient(handler)`): disposing it disposes the handler, and any later call through the returned service fails with `ObjectDisposedException`.
 
 ## Architecture notes
 
@@ -51,6 +54,15 @@ Run from repo root unless noted.
 - AutoMapper profiles live in `FinanceManagerApi/Profiles/`. `AddAutoMapper` scans the whole assembly, so new profile classes are picked up automatically.
 - Entity relationships are configured in `FinanceDbContext.OnModelCreating` (Expense ↔ ExpenseCategory, Income ↔ IncomeCategory, Expense ↔ Receipt). Identity join tables are flagged `HasNoKey()` — keep this when adding new identity-related entities.
 - Static files served from `FinanceManagerApi/wwwroot/`; `GET /` redirects to `/index.html`. Swagger UI is only mounted in Development.
+
+## Receipt scanning (Gemini)
+
+- `Services/GeminiReceiptScanService.cs` owns all Gemini calls: `ScanAsync(stream, mime, model?, strict, ct)`, `ListModelsAsync` (paged, cached 10 min) and `ProbeAsync` (the availability sweep, per-model result TTLs).
+- `ReceiptController` exposes `POST api/Receipt/Scan` (multipart: `file`, `model`, `strict`), `GET api/Receipt/Models` (unfiltered list + `supportsGenerateContent`) and `POST api/Receipt/Probe`.
+- A scan that exhausts the model chain throws `GeminiScanException`; the controller turns it into a **502** `{ message, attempts[] }`. Never let it reach `ExceptionMiddleware` — that rewrites it to "An error occurred, please try again later" and throws away the only actionable part.
+- Config: `Gemini:DefaultModel` (`gemma-4-26b-a4b-it`), `Gemini:AttemptTimeoutSeconds` (10), `Gemini:ProbeConcurrency` (4). The key is `GEMINI_API_KEY`, read from configuration.
+- Availability has three gates: `supportedGenerationMethods` must contain `generateContent`; a name heuristic rejects tts/image/embedding/aqa/imagen/veo/live; then `Samples/receipt-probe.jpg` proves vision. The models list never declares vision support, so only the probe can tell a text-only model from a vision one.
+- The chain advances past any failed model except `auth_error` and `quota`, which rule out every model the key can reach.
 
 ## Conventions
 

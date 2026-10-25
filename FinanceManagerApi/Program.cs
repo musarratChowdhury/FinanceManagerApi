@@ -77,6 +77,7 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorizationBuilder();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped<IExpenseService, ExpenseService>();

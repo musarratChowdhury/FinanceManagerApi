@@ -44,4 +44,9 @@
         <Folder Include="Migrations\"/>
     </ItemGroup>
 
+    <!-- Sample receipt used by the availability sweep (Receipt/Probe). -->
+    <ItemGroup>
+        <None Include="Samples\receipt-probe.jpg" CopyToOutputDirectory="PreserveNewest"/>
+    </ItemGroup>
+
 </Project>

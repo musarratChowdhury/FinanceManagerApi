@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using FinanceManagerApi.Models.DTO;
 using FinanceManagerApi.Models.Entity;
+using FinanceManagerApi.Models.Errors;
 using FinanceManagerApi.Repository;
 using FinanceManagerApi.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -30,7 +31,11 @@ public class ReceiptController : ControllerBase
 
     [HttpPost("Scan")]
     [RequestSizeLimit(10 * 1024 * 1024)]
-    public async Task<IActionResult> Scan([FromForm] IFormFile? file, CancellationToken cancellationToken)
+    public async Task<IActionResult> Scan(
+        [FromForm] IFormFile? file,
+        [FromForm] string? model,
+        [FromForm] bool? strict,
+        CancellationToken cancellationToken)
     {
         if (file is null || file.Length == 0)
         {
@@ -43,12 +48,74 @@ public class ReceiptController : ControllerBase
             return BadRequest("Only receipt images and PDF files are supported.");
         }
 
+        if (!string.IsNullOrWhiteSpace(model) &&
+            !GeminiReceiptScanService.TryNormalizeModelName(model, out _))
+        {
+            return BadRequest("That model name is not valid.");
+        }
+
         await using var stream = file.OpenReadStream();
-        var result = await _geminiReceiptScanService.ScanAsync(
-            stream,
-            file.ContentType,
-            cancellationToken);
-        return Ok(result);
+
+        try
+        {
+            var result = await _geminiReceiptScanService.ScanAsync(
+                stream,
+                file.ContentType,
+                model,
+                strict ?? false,
+                cancellationToken);
+            return Ok(result);
+        }
+        catch (GeminiScanException exception)
+        {
+            // 502 rather than the generic 500 from ExceptionMiddleware: the per-model
+            // attempts (including Gemini's raw error body) are the useful part.
+            return StatusCode(
+                StatusCodes.Status502BadGateway,
+                new GeminiFailureDto { Message = exception.Message, Attempts = exception.Attempts });
+        }
+    }
+
+    /// <summary>
+    /// Models this API key can see, plus whether each one can generate content.
+    /// The settings screen needs the raw list to explain why a model is unusable.
+    /// </summary>
+    [HttpGet("Models")]
+    public async Task<IActionResult> GetModels(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Ok(await _geminiReceiptScanService.ListModelsAsync(cancellationToken));
+        }
+        catch (GeminiScanException exception)
+        {
+            return StatusCode(
+                StatusCodes.Status502BadGateway,
+                new GeminiFailureDto { Message = exception.Message, Attempts = exception.Attempts });
+        }
+    }
+
+    /// <summary>
+    /// Availability sweep. Probes each candidate with the sample receipt and
+    /// returns the first model that actually answered.
+    /// </summary>
+    [HttpPost("Probe")]
+    public async Task<IActionResult> Probe(
+        [FromBody] GeminiProbeRequest? request,
+        CancellationToken cancellationToken)
+    {
+        var models = request?.Models;
+
+        if (models is { Count: > 0 } &&
+            models.Any(candidate => !GeminiReceiptScanService.TryNormalizeModelName(candidate, out _)))
+        {
+            return BadRequest("One of the model names is not valid.");
+        }
+
+        return Ok(await _geminiReceiptScanService.ProbeAsync(
+            models,
+            request?.Fresh ?? false,
+            cancellationToken));
     }
 
     [HttpGet]
