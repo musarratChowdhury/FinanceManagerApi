@@ -64,6 +64,30 @@ Run from repo root unless noted.
 - Availability has three gates: `supportedGenerationMethods` must contain `generateContent`; a name heuristic rejects tts/image/embedding/aqa/imagen/veo/live; then `Samples/receipt-probe.jpg` proves vision. The models list never declares vision support, so only the probe can tell a text-only model from a vision one.
 - The chain advances past any failed model except `auth_error` and `quota`, which rule out every model the key can reach.
 
+## Saving a scanned receipt
+
+- **`POST /api/Receipt` is the only correct way to persist a scanned receipt.** It
+  takes the receipt header plus its `expenses[]` and writes them in **one
+  `SaveChanges`**, so either the receipt and every line item land, or nothing does.
+  EF assigns `Expenses.ReceiptId` from the principal during that save; the client
+  never sends it and the controller nulls it out if it does.
+- Returns **`201` with `Location: /api/Receipt/{id}`** and the stored receipt
+  (including the generated id and each expense's `receiptId`). `GET /api/Receipt/{id}`
+  returns `404` when the receipt does not exist.
+- **Do not recreate the old per-line-item loop** (one `POST /api/Expense/Create` per
+  item). It made partial saves the normal failure mode, could not attach a receipt,
+  and a retry duplicated every row that had already succeeded.
+- `Expense.Quantity` is **`double?`, not `int?`** — quantities are genuinely
+  fractional (0.5 kg, 0.3 l). An `int` here makes the JSON binder reject the whole
+  payload with a 400 that carries no useful message.
+- `Receipt` carries `Merchant`, `InvoiceNo` (nullable — many receipts print none),
+  `GrossTotal` (before discount), `Discount`, `NetPayable` (after discount),
+  `TotalItems` and `ReceiptDateTime` (date **and** time). `GrandTotal`/`ExpenseDate`
+  are gone; the migration renamed them in place so existing rows kept their values.
+- Dates on the way in are re-pinned to UTC by `ReceiptService.PinDateKindsToUtc`
+  (same Npgsql rule as expenses), so a client that sends `yyyy-MM-ddTHH:mm:ss.000Z`
+  is safe and one that omits the offset cannot 500.
+
 ## Conventions
 
 - Entities in `Models/Entity/`, DTOs in `Models/DTO/`, error/response shapes in `Models/Errors/`.

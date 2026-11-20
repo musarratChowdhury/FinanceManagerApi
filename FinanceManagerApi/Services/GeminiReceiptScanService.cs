@@ -73,6 +73,7 @@ public sealed class GeminiReceiptScanService : IGeminiReceiptScanService
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
     private readonly IMemoryCache _cache;
+    private readonly ISettingsService _settingsService;
     private readonly ILogger<GeminiReceiptScanService> _logger;
     private readonly Lazy<byte[]?> _probeImage;
 
@@ -80,17 +81,76 @@ public sealed class GeminiReceiptScanService : IGeminiReceiptScanService
         HttpClient httpClient,
         IConfiguration configuration,
         IMemoryCache cache,
+        ISettingsService settingsService,
         ILogger<GeminiReceiptScanService> logger)
     {
         _httpClient = httpClient;
         _configuration = configuration;
         _cache = cache;
+        _settingsService = settingsService;
         _logger = logger;
         _probeImage = new Lazy<byte[]?>(() => LoadProbeImage(logger));
     }
 
+    /// <summary>
+    /// Configuration fallback, used when the settings table has no model saved.
+    /// The settings page value wins over this (see <see cref="GetEffectiveDefaultModelAsync"/>).
+    /// </summary>
     public string DefaultModel =>
         NormalizeModelName(_configuration["Gemini:DefaultModel"]) ?? FallbackDefaultModel;
+
+    /// <summary>
+    /// The model to use when the client has not chosen one: the value saved from
+    /// the settings page, falling back to the configured default. A settings read
+    /// must never break a scan, so failures fall back rather than throw.
+    /// </summary>
+    private async Task<string> GetEffectiveDefaultModelAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var stored = await _settingsService.GetValueAsync(SettingKeys.ReceiptScanModel, cancellationToken);
+            if (NormalizeModelName(ReadSettingString(stored)) is { } fromSettings)
+            {
+                return fromSettings;
+            }
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Could not read the {Key} setting; using the configured default model",
+                SettingKeys.ReceiptScanModel);
+        }
+
+        return DefaultModel;
+    }
+
+    /// <summary>
+    /// A setting value is stored as JSON, so the model arrives as `"name"`. Accept
+    /// a bare value too, in case a row was written by hand.
+    /// </summary>
+    private static string? ReadSettingString(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        if (trimmed.StartsWith('"'))
+        {
+            try
+            {
+                return JsonSerializer.Deserialize<string>(trimmed);
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
+
+        return trimmed;
+    }
 
     public int AttemptTimeoutSeconds
     {
@@ -146,7 +206,8 @@ public sealed class GeminiReceiptScanService : IGeminiReceiptScanService
         CancellationToken cancellationToken = default)
     {
         var requested = NormalizeModelName(model);
-        var chain = BuildChain(requested, strict);
+        var defaultModel = await GetEffectiveDefaultModelAsync(cancellationToken);
+        var chain = BuildChain(requested, strict, defaultModel);
 
         byte[] bytes;
         using (var buffer = new MemoryStream())
@@ -199,7 +260,7 @@ public sealed class GeminiReceiptScanService : IGeminiReceiptScanService
 
     public async Task<GeminiModelsDto> ListModelsAsync(CancellationToken cancellationToken = default)
     {
-        var defaultModel = DefaultModel;
+        var defaultModel = await GetEffectiveDefaultModelAsync(cancellationToken);
         var cacheKey = $"gemini:models:{defaultModel}";
         if (_cache.TryGetValue(cacheKey, out GeminiModelsDto? cached) && cached is not null)
         {
@@ -257,7 +318,7 @@ public sealed class GeminiReceiptScanService : IGeminiReceiptScanService
         bool fresh = false,
         CancellationToken cancellationToken = default)
     {
-        var defaultModel = DefaultModel;
+        var defaultModel = await GetEffectiveDefaultModelAsync(cancellationToken);
         var apiKey = GetApiKey();
         var probeImage = _probeImage.Value;
         var probeMode = probeImage is null ? ProbeModes.Text : ProbeModes.Receipt;
@@ -756,7 +817,7 @@ public sealed class GeminiReceiptScanService : IGeminiReceiptScanService
 
     /* -------------------------------------------------------------- plumbing */
 
-    private List<string> BuildChain(string? requested, bool strict)
+    private List<string> BuildChain(string? requested, bool strict, string defaultModel)
     {
         var chain = new List<string>();
         if (requested is not null)
@@ -766,14 +827,14 @@ public sealed class GeminiReceiptScanService : IGeminiReceiptScanService
 
         if (strict && chain.Count == 0)
         {
-            chain.Add(DefaultModel);
+            chain.Add(defaultModel);
         }
-        else if (!strict && !chain.Contains(DefaultModel, StringComparer.OrdinalIgnoreCase))
+        else if (!strict && !chain.Contains(defaultModel, StringComparer.OrdinalIgnoreCase))
         {
-            chain.Add(DefaultModel);
+            chain.Add(defaultModel);
         }
 
-        return chain.Count == 0 ? [DefaultModel] : chain;
+        return chain.Count == 0 ? [defaultModel] : chain;
     }
 
     private List<string> BuildCandidateList(IReadOnlyList<string>? models, string defaultModel)
@@ -977,6 +1038,7 @@ public sealed class GeminiReceiptScanService : IGeminiReceiptScanService
         return new ReceiptScanDto
         {
             Merchant = result.Merchant?.Trim(),
+            InvoiceNo = string.IsNullOrWhiteSpace(result.InvoiceNo) ? null : result.InvoiceNo.Trim(),
             Date = date,
             Currency = result.Currency?.Trim(),
             Items = items,
@@ -1059,7 +1121,8 @@ public sealed class GeminiReceiptScanService : IGeminiReceiptScanService
         properties = new
         {
             merchant = new { type = "STRING" },
-            date = new { type = "STRING", description = "ISO date YYYY-MM-DD, or empty string if unavailable" },
+            invoiceNo = new { type = "STRING", description = "Invoice or bill number as printed, or empty string if the receipt has none" },
+            date = new { type = "STRING", description = "ISO 8601 date and time (YYYY-MM-DDTHH:MM:SS) when the receipt shows a time, otherwise YYYY-MM-DD, or empty string if unavailable" },
             currency = new { type = "STRING" },
             items = new
             {
@@ -1082,10 +1145,10 @@ public sealed class GeminiReceiptScanService : IGeminiReceiptScanService
             total = new { type = "NUMBER" },
             rawTotalText = new { type = "STRING" }
         },
-        required = new[] { "merchant", "date", "currency", "items", "total", "rawTotalText" }
+        required = new[] { "merchant", "invoiceNo", "date", "currency", "items", "total", "rawTotalText" }
     };
 
     private const string Prompt = """
-        Extract this receipt into the JSON schema. Do not invent values. Use null only where the schema permits it, and use an empty string for unavailable text fields. Include every visible purchased line item, its quantity, unit price, and final line amount. Preserve the receipt's total text in rawTotalText. The total must be the final amount charged, not a subtotal.
+        Extract this receipt into the JSON schema. Do not invent values. Use null only where the schema permits it, and use an empty string for unavailable text fields. Include every visible purchased line item, its quantity, unit price, and final line amount. Quantities may be fractional (0.5 kg, 0.3 l) — keep them as numbers, never round them. Capture the invoice or bill number when the receipt prints one, and include the time of purchase when it is shown. Preserve the receipt's total text in rawTotalText. The total must be the final amount charged after any discount, not a subtotal.
         """;
 }

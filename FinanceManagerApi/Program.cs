@@ -82,6 +82,7 @@ builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
 builder.Services.AddScoped<IReceiptService, ReceiptService>();
+builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddHttpClient<IGeminiReceiptScanService, GeminiReceiptScanService>(client =>
 {
 	client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");

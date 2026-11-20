@@ -4,9 +4,14 @@ namespace FinanceManagerApi.Models.DTO;
 
 public sealed class ReceiptScanDto
 {
-    public string? Merchant { get; init; }
-    public DateTime? Date { get; init; }
-    public string? Currency { get; init; }
+    public string? Merchant { get; set; }
+
+    /// <summary>Invoice / bill number, when the receipt prints one.</summary>
+    public string? InvoiceNo { get; set; }
+
+    /// <summary>Date and time printed on the receipt (UTC when only a date is shown).</summary>
+    public DateTime? Date { get; set; }
+    public string? Currency { get; set; }
     public List<ReceiptScanItemDto> Items { get; init; } = [];
     public decimal? Subtotal { get; init; }
     public decimal? Discount { get; init; }
@@ -34,6 +39,9 @@ internal sealed class GeminiReceiptResponse
 {
     [JsonPropertyName("merchant")]
     public string? Merchant { get; set; }
+
+    [JsonPropertyName("invoiceNo")]
+    public string? InvoiceNo { get; set; }
 
     [JsonPropertyName("date")]
     public string? Date { get; set; }

@@ -17,6 +17,7 @@ public class FinanceDbContext :  IdentityDbContext<UserProfile>
     public DbSet<IncomeCategory> IncomeCategories { get; set; }
     public DbSet<Income> Incomes { get; set; }
     public DbSet<Receipt> Receipts { get; set; }
+    public DbSet<Settings> Settings { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -34,6 +35,11 @@ public class FinanceDbContext :  IdentityDbContext<UserProfile>
             .HasOne(e => e.Receipt) 
             .WithMany(ec => ec.Expenses) 
             .HasForeignKey(e => e.ReceiptId);
+
+        // One row per setting key.
+        modelBuilder.Entity<Settings>()
+            .HasIndex(s => s.Key)
+            .IsUnique();
         
         modelBuilder.Entity<IdentityUserLogin<string>>().HasNoKey();
         modelBuilder.Entity<IdentityUserRole<string>>().HasNoKey();

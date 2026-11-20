@@ -6,7 +6,10 @@ public class Expense
     public string Cause {get; set;} = string.Empty;
     public double Amount {get; set;}
 
-    public int? Quantity { get; set; } = null;
+    /// <summary>
+    /// Fractional quantities are real (0.5 kg, 0.3 l), so this must not be an int.
+    /// </summary>
+    public double? Quantity { get; set; } = null;
     public double? UnitPrice { get; set; } = null;
     public DateTime? ExpenseDate { get; set; } = null;
     public DateTime EntryDate {get; set;} = DateTime.UtcNow;

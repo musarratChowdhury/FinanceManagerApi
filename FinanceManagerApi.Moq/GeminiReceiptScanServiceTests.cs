@@ -389,7 +389,8 @@ public sealed class GeminiReceiptScanServiceTests
     private static GeminiReceiptScanService Build(
         GeminiHandler handler,
         Dictionary<string, string?>? settings = null,
-        string? apiKey = "test-key")
+        string? apiKey = "test-key",
+        ISettingsService? storedSettings = null)
     {
         var client = new HttpClient(handler)
         {
@@ -413,6 +414,7 @@ public sealed class GeminiReceiptScanServiceTests
             client,
             new ConfigurationBuilder().AddInMemoryCollection(values).Build(),
             new MemoryCache(new MemoryCacheOptions()),
+            storedSettings ?? new FakeSettingsService(),
             NullLogger<GeminiReceiptScanService>.Instance);
     }
 

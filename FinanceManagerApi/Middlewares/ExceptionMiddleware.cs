@@ -27,9 +27,26 @@ public class ExceptionMiddleware
         {
             await _next(httpContext);
         }
+        catch (OperationCanceledException) when (httpContext.RequestAborted.IsCancellationRequested)
+        {
+            // The client hung up mid-request (navigation, refresh, aborted upload).
+            // Nothing failed, and there is no connection left to answer, so this
+            // must not be logged as an error or turned into a 500.
+            _logger.LogDebug(
+                "Request aborted by the client: {Method} {Path}",
+                httpContext.Request.Method,
+                httpContext.Request.Path);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, ex.Message);
+
+            // A response that has already started streaming cannot have its status
+            // rewritten; rethrowing lets the server abort the connection cleanly.
+            if (httpContext.Response.HasStarted)
+            {
+                throw;
+            }
 
             httpContext.Response.StatusCode = 500;
             httpContext.Response.ContentType = "application/json";

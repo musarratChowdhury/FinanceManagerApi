@@ -89,6 +89,7 @@ public sealed class GeminiReceiptScanLiveTests
             client,
             configuration,
             new MemoryCache(new MemoryCacheOptions()),
+            new FakeSettingsService(),
             NullLogger<GeminiReceiptScanService>.Instance);
 
         await using var image = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Samples", sampleName));
@@ -119,6 +120,7 @@ public sealed class GeminiReceiptScanLiveTests
             client,
             configuration,
             new MemoryCache(new MemoryCacheOptions()),
+            new FakeSettingsService(),
             NullLogger<GeminiReceiptScanService>.Instance);
 
         var result = await service.ListModelsAsync();
@@ -154,6 +156,7 @@ public sealed class GeminiReceiptScanLiveTests
             client,
             configuration,
             new MemoryCache(new MemoryCacheOptions()),
+            new FakeSettingsService(),
             NullLogger<GeminiReceiptScanService>.Instance);
 
         var result = await service.ProbeAsync(

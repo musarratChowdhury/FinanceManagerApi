@@ -23,6 +23,8 @@
 
     <ItemGroup>
       <ProjectReference Include="..\FinanceManagerApi\FinanceManagerApi.csproj" />
+      <!-- Needed for DefaultHttpContext / IHostEnvironment in the middleware tests. -->
+      <FrameworkReference Include="Microsoft.AspNetCore.App" />
     </ItemGroup>
 
     <ItemGroup>

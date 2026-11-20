@@ -49,8 +49,8 @@ namespace FinanceManagerApi.Migrations
                     b.Property<DateTime?>("ExpenseDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int?>("Quantity")
-                        .HasColumnType("integer");
+                    b.Property<double?>("Quantity")
+                        .HasColumnType("double precision");
 
                     b.Property<long?>("ReceiptId")
                         .HasColumnType("bigint");
@@ -219,14 +219,26 @@ namespace FinanceManagerApi.Migrations
                     b.Property<Guid>("CreatedBy")
                         .HasColumnType("uuid");
 
+                    b.Property<double>("Discount")
+                        .HasColumnType("double precision");
+
                     b.Property<DateTime>("EntryDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime>("ExpenseDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<double>("GrandTotal")
+                    b.Property<double>("GrossTotal")
                         .HasColumnType("double precision");
+
+                    b.Property<string>("InvoiceNo")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Merchant")
+                        .HasColumnType("text");
+
+                    b.Property<double>("NetPayable")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime>("ReceiptDateTime")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("TotalItems")
                         .HasColumnType("integer");
@@ -234,6 +246,33 @@ namespace FinanceManagerApi.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Receipts");
+                });
+
+            modelBuilder.Entity("FinanceManagerApi.Models.Entity.Settings", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("Settings");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityPasskeyData", b =>

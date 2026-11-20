@@ -129,9 +129,13 @@ public class ReceiptController : ControllerBase
     public async Task<IActionResult> GetById(long id)
     {
         var receipt = await _receiptService.GetReceiptByIdAsync(id);
-        return Ok(receipt);
+        return receipt is null ? NotFound() : Ok(receipt);
     }
 
+    /// <summary>
+    /// Saves a receipt together with its line items. One request, one database
+    /// save: either the receipt and every expense land, or nothing does.
+    /// </summary>
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] ReceiptDto receiptDto)
     {
@@ -139,26 +143,37 @@ public class ReceiptController : ControllerBase
         {
             return BadRequest(ModelState);
         }
-        var userId = _httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (receiptDto.Expenses.Count == 0)
+        {
+            return BadRequest("A receipt needs at least one expense line.");
+        }
+
+        var userId = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userId))
         {
             return Unauthorized();
         }
-        
+
+        // Ownership and audit stamps are server-owned: whatever the payload
+        // claimed, the rows belong to the caller.
         var createdBy = new Guid(userId);
         var entryDate = DateTime.UtcNow;
 
+        receiptDto.Id = 0;
         receiptDto.CreatedBy = createdBy;
         receiptDto.EntryDate = entryDate;
 
-        receiptDto.Expenses.ForEach(expense =>
+        foreach (var expense in receiptDto.Expenses)
         {
             expense.CreatedBy = createdBy;
             expense.EntryDate = entryDate;
-        });
-        
-        await _receiptService.CreateReceiptAsync(receiptDto);
-        return Ok();
+            // Assigned by EF from the receipt; never trusted from the client.
+            expense.ReceiptId = null;
+        }
+
+        var created = await _receiptService.CreateReceiptAsync(receiptDto);
+        return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
     // [HttpPut("{id}")]
