@@ -116,12 +116,19 @@ jobs:
           PY
           )"
 
-          # CockroachDB rejects DDL inside EF's DO $EF$ blocks, and `dotnet ef`
-          # writes a UTF-8 BOM that the cockroach CLI reads literally. The rewrite
-          # script handles both, plus the idempotency (`IF [NOT] EXISTS`,
-          # `ON CONFLICT DO NOTHING`) and the statement timeout.
-          # See scripts/rewrite-migrations.py for the details.
-          python3 scripts/rewrite-migrations.py sql/pending.sql sql/cockroach.sql
+          # CockroachDB rejects DDL inside EF's DO $EF$ blocks, and it cannot
+          # evaluate the "is this migration already recorded?" guard either. So
+          # the rewriter drops blocks for migrations already in the history
+          # table: one-shot DDL such as RENAME COLUMN has no IF EXISTS form to
+          # fall back on. A fresh database has no history table yet, so an empty
+          # list is the correct answer there.
+          cockroach sql \
+            --url="$COCKROACH_URL" \
+            --format=csv \
+            --execute='SELECT "MigrationId" FROM "__EFMigrationsHistory"' \
+            > sql/applied.csv 2>/dev/null || true
+
+          python3 scripts/rewrite-migrations.py sql/pending.sql sql/cockroach.sql sql/applied.csv
 
           echo "Applying migrations to CockroachDB..."
           cockroach sql \
