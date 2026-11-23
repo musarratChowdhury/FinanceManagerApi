@@ -44,6 +44,8 @@ Run from repo root unless noted.
 - **`gemma-4-26b-a4b-it` needs 9-12 s per receipt.** Measured against the bundled 238 KB probe image: **12.2 s cold**, 8.6 s and 9.1 s warm. `Gemini:AttemptTimeoutSeconds` defaults to 10, so the first, cold attempt can time out and the sweep silently falls through to the next model. Raise it to 15 if cold starts must pass — the probe and a real scan share the same budget.
 - **Don't read `GEMINI_API_KEY` with `Environment.GetEnvironmentVariable`.** `WebApplication.CreateBuilder` already layers environment variables into `IConfiguration`, so a direct read is redundant *and* makes in-memory-config unit tests depend on the developer's machine (the key is set locally, so a "missing key" test passes for the wrong reason). Configuration is the single source of truth.
 - **`HttpClient` in the unit tests must not be disposed** (`using var client = new HttpClient(handler)`): disposing it disposes the handler, and any later call through the returned service fails with `ObjectDisposedException`.
+- **The repository's include overload is `Filter(predicate, params string[])`.** A Moq setup whose callback is typed `<…, string>` for a single include throws at setup time ("cannot invoke callback with parameters (…, string)") — use `Callback<…, string[]>`.
+- **`ReceiptDto.HasImage` is a plain settable property, not a computed getter.** AutoMapper cannot assign a read-only member, so the profile maps it with `MapFrom(r => r.Images.Count > 0)`; `Images` is `Ignore()`d on the DTO→entity map so a client cannot inject image rows.
 
 ## Architecture notes
 
@@ -87,6 +89,37 @@ Run from repo root unless noted.
 - Dates on the way in are re-pinned to UTC by `ReceiptService.PinDateKindsToUtc`
   (same Npgsql rule as expenses), so a client that sends `yyyy-MM-ddTHH:mm:ss.000Z`
   is safe and one that omits the offset cannot 500.
+
+## Receipt photos (Backblaze B2)
+
+One softcopy per receipt, stored in a private B2 bucket through its S3-compatible
+API. `Services/Storage/B2ReceiptStorage.cs` owns the SDK; the endpoints live on
+`ReceiptImageController`.
+
+- **Config**: `B2:ServiceUrl`, `B2:Region`, `B2:KeyId`, `B2:AppKey`, `B2:Bucket`
+  (env vars `B2__*` on Render, user-secrets locally). Empty `appsettings.json`
+  values are deliberate — with no credentials the API still boots and only
+  `/api/Receipt/{id}/image*` answers **503**.
+- **Endpoints** (all ownership-checked, foreign receipt = **404** not 403):
+  `POST /api/Receipt/{id}/image` (multipart `file`, upsert/replace),
+  `GET …/image` (metadata), `GET …/image/url` (presigned, 5 min, clamped 60–3600 s),
+  `DELETE …/image`.
+- **One image per receipt** is enforced by a unique index on `ReceiptImages.ReceiptId`,
+  and re-uploading replaces in place.
+- **Validation is server-side**: magic-byte sniffing (JPEG/PNG/WebP only; SVG and
+  PDF rejected), a 5 MB per-file cap read with a bounded buffer so `Content-Length`
+  is never trusted, and a 200 MB per-user quota (`SUM(SizeBytes)` by `CreatedBy`).
+- **Ordering matters**: upload → object → row (delete the object if the row write
+  fails); delete → object → row (a store failure keeps the row so it can be
+  retried). A future receipt-delete must delete objects first — EF cascade alone
+  would orphan bytes.
+- Keys are server-built (`receipts/{userId}/{receiptId}/{guid}.{ext}`); the client
+  never sees the key, only a signed URL.
+- **Never** log or commit `B2:KeyId`/`B2:AppKey`, and keep the bucket private.
+
+Two SDK settings are load-bearing: `ForcePathStyle = true`, and
+`RequestChecksumCalculation`/`ResponseChecksumValidation` at `WHEN_REQUIRED` —
+the AWS SDK v4 defaults add checksums that B2 rejects.
 
 ## Conventions
 

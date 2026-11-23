@@ -17,6 +17,7 @@ public class FinanceDbContext :  IdentityDbContext<UserProfile>
     public DbSet<IncomeCategory> IncomeCategories { get; set; }
     public DbSet<Income> Incomes { get; set; }
     public DbSet<Receipt> Receipts { get; set; }
+    public DbSet<ReceiptImage> ReceiptImages { get; set; }
     public DbSet<Settings> Settings { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -35,6 +36,25 @@ public class FinanceDbContext :  IdentityDbContext<UserProfile>
             .HasOne(e => e.Receipt) 
             .WithMany(ec => ec.Expenses) 
             .HasForeignKey(e => e.ReceiptId);
+
+        // One softcopy per receipt: the unique index is what makes "replace"
+        // unambiguous, and it is the last line of defence against a double upload.
+        modelBuilder.Entity<ReceiptImage>()
+            .HasOne(image => image.Receipt)
+            .WithMany(receipt => receipt.Images)
+            .HasForeignKey(image => image.ReceiptId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ReceiptImage>()
+            .HasIndex(image => image.ReceiptId)
+            .IsUnique();
+
+        modelBuilder.Entity<ReceiptImage>()
+            .HasIndex(image => image.ObjectKey)
+            .IsUnique();
+
+        modelBuilder.Entity<ReceiptImage>()
+            .HasIndex(image => image.CreatedBy);
 
         // One row per setting key.
         modelBuilder.Entity<Settings>()

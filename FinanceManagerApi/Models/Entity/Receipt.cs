@@ -38,4 +38,10 @@ public class Receipt
     public Guid CreatedBy { get; set; }
 
     public List<Expense> Expenses { get; set; } = new();
+
+    /// <summary>
+    /// The receipt's softcopy. At most one row: the photo lives in the private
+    /// receipt-photo bucket and this only points at it.
+    /// </summary>
+    public List<ReceiptImage> Images { get; set; } = new();
 }

@@ -14,6 +14,9 @@
         <!-- AutoMapper -->
         <PackageReference Include="AutoMapper" Version="14.0.0"/>
 
+        <!-- S3 SDK, used for the Backblaze B2 receipt photo bucket -->
+        <PackageReference Include="AWSSDK.S3" Version="4.1.2"/>
+
         <!-- ASP.NET Core Auth -->
         <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0"/>
         <!-- Identity + EF Core support -->

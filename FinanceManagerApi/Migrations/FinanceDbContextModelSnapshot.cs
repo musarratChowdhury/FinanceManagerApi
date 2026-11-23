@@ -248,6 +248,47 @@ namespace FinanceManagerApi.Migrations
                     b.ToTable("Receipts");
                 });
 
+            modelBuilder.Entity("FinanceManagerApi.Models.Entity.ReceiptImage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ObjectKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("ReceiptId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("ObjectKey")
+                        .IsUnique();
+
+                    b.HasIndex("ReceiptId")
+                        .IsUnique();
+
+                    b.ToTable("ReceiptImages");
+                });
+
             modelBuilder.Entity("FinanceManagerApi.Models.Entity.Settings", b =>
                 {
                     b.Property<long>("Id")
@@ -461,6 +502,17 @@ namespace FinanceManagerApi.Migrations
                     b.Navigation("IncomeCategory");
                 });
 
+            modelBuilder.Entity("FinanceManagerApi.Models.Entity.ReceiptImage", b =>
+                {
+                    b.HasOne("FinanceManagerApi.Models.Entity.Receipt", "Receipt")
+                        .WithMany("Images")
+                        .HasForeignKey("ReceiptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Receipt");
+                });
+
             modelBuilder.Entity("FinanceManagerApi.Models.Entity.ExpenseCategory", b =>
                 {
                     b.Navigation("Expenses");
@@ -474,6 +526,8 @@ namespace FinanceManagerApi.Migrations
             modelBuilder.Entity("FinanceManagerApi.Models.Entity.Receipt", b =>
                 {
                     b.Navigation("Expenses");
+
+                    b.Navigation("Images");
                 });
 #pragma warning restore 612, 618
         }

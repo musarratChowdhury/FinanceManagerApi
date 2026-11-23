@@ -28,4 +28,17 @@ public class ReceiptDto
 
     /// <summary>The line items. Each one is persisted with this receipt's id as its FK.</summary>
     public List<ExpenseDto> Expenses { get; set; } = new();
+
+    /// <summary>
+    /// The receipt's softcopy, when one has been stored. Read-only in practice:
+    /// the upload endpoint is the only way to create one.
+    /// </summary>
+    public List<ReceiptImageDto> Images { get; set; } = new();
+
+    /// <summary>
+    /// True when a photo exists. A plain property (not a computed getter) because
+    /// AutoMapper cannot assign a read-only member; the receipts list renders many
+    /// rows at once, so one boolean avoids a URL request per row.
+    /// </summary>
+    public bool HasImage { get; set; }
 }

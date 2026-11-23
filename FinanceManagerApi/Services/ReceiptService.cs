@@ -42,11 +42,12 @@ public class ReceiptService : IReceiptService
         try
         {
             // Scoped to the caller — an unscoped read leaks another account's rows —
-            // and with the line items loaded, so the ledger can expand a receipt
-            // without a second round trip per row.
+            // and with the line items and softcopy loaded, so the ledger can expand a
+            // receipt without a second round trip per row.
             var receipts = await _receiptRepository.Filter(
                 x => x.CreatedBy == _currentUser.UserId,
-                "Expenses");
+                "Expenses",
+                "Images");
 
             return _mapper.Map<IEnumerable<ReceiptDto>>(receipts);
         }
@@ -65,7 +66,8 @@ public class ReceiptService : IReceiptService
             // endpoint cannot be used to probe which ids exist.
             var receipt = (await _receiptRepository.Filter(
                 x => x.Id == id && x.CreatedBy == _currentUser.UserId,
-                "Expenses")).FirstOrDefault();
+                "Expenses",
+                "Images")).FirstOrDefault();
 
             return receipt is null ? null : _mapper.Map<ReceiptDto>(receipt);
         }

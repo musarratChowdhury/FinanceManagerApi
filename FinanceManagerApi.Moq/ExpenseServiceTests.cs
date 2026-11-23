@@ -145,7 +145,7 @@ public class ExpenseServiceTests
 
         _expenseRepositoryMock
             .Setup(repo => repo.Filter(It.IsAny<Expression<Func<Expense, bool>>>(), "ExpenseCategory"))
-            .Callback<Expression<Func<Expense, bool>>, string>((p, _) => capturedPredicate = p)
+            .Callback<Expression<Func<Expense, bool>>, string[]>((p, _) => capturedPredicate = p)
             .ReturnsAsync(new List<Expense> { inWindow });
 
         _mapperMock

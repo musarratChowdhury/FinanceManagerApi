@@ -32,9 +32,15 @@ public class GenericRepository<TEntity> : IGenericRepository<TEntity> where TEnt
         return result;
     }
 
-	public async Task<IEnumerable<TEntity>> Filter(Expression<Func<TEntity, bool>> predicate, string includeProp)
+	public async Task<IEnumerable<TEntity>> Filter(Expression<Func<TEntity, bool>> predicate, params string[] includeProps)
 	{
-		var query = _dbSet.Where(predicate).Include(includeProp);
+		var query = _dbSet.Where(predicate);
+
+		foreach (var includeProp in includeProps)
+		{
+			query = query.Include(includeProp);
+		}
+
 		var result = await query.ToListAsync();
 		return result;
 	}
@@ -76,5 +82,5 @@ public interface IGenericRepository<TEntity> where TEntity : class
     Task UpdateAsync(TEntity entity);
     Task DeleteAsync(long id);
     Task<IEnumerable<TEntity>> Filter(Expression<Func<TEntity, bool>> predicate);
-	Task<IEnumerable<TEntity>> Filter(Expression<Func<TEntity, bool>> predicate, string includeProp);
+	Task<IEnumerable<TEntity>> Filter(Expression<Func<TEntity, bool>> predicate, params string[] includeProps);
 }

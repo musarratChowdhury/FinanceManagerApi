@@ -3,8 +3,10 @@ using FinanceManagerApi.Data;
 using FinanceManagerApi.DbContext;
 using FinanceManagerApi.Middlewares;
 using FinanceManagerApi.Models.Entity.Identity;
+using FinanceManagerApi.Options;
 using FinanceManagerApi.Repository;
 using FinanceManagerApi.Services;
+using FinanceManagerApi.Services.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -83,6 +85,13 @@ builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepositor
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
 builder.Services.AddScoped<IReceiptService, ReceiptService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();
+
+// Receipt softcopy storage (Backblaze B2 via its S3-compatible API). Singleton:
+// the S3 client is thread-safe and is disposed with the app. Empty credentials
+// leave the API running and only the receipt-photo endpoints answer 503.
+builder.Services.Configure<B2Options>(builder.Configuration.GetSection("B2"));
+builder.Services.AddSingleton<IReceiptStorage, B2ReceiptStorage>();
+builder.Services.AddScoped<IReceiptImageService, ReceiptImageService>();
 builder.Services.AddHttpClient<IGeminiReceiptScanService, GeminiReceiptScanService>(client =>
 {
 	client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
