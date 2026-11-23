@@ -140,11 +140,12 @@ it to CockroachDB → notify Render.
 - The step order matters: the Docker image is pushed **before** the migration step, so a failed migration leaves a new image on Docker Hub that Render may still auto-deploy.
 - `dotnet ef migrations script --idempotent` regenerates the **whole** schema every run (not just pending migrations). The apply step is therefore made idempotent by rewriting the SQL — see the "CockroachDB migrations" section below.
 
-## CockroachDB migrations (the apply step has two traps)
+## CockroachDB migrations (the apply step has three traps)
 
 - **`cockroach sql --set=NAME=VALUE` configures CLIENT-SIDE options** (display_format, errexit, echo, …), *not* server session variables. `--set=statement_timeout=30s` fails with `ERROR: -e: unknown variable name: "statement_timeout"`. Set the timeout with SQL instead: `SET statement_timeout = '30s';`.
 - **`dotnet ef migrations script --output` writes a UTF-8 BOM.** The cockroach CLI reads the file literally, so the BOM lands in front of the first statement and it dies with `syntax error`. The rewrite step reads with `encoding="utf-8-sig"` (strips it) and writes back with `encoding="utf-8"` (adds none).
-- EF's `DO $EF$ … END $EF$` blocks are not valid CockroachDB DDL — the rewrite unwraps them and adds `IF [NOT] EXISTS` / `ON CONFLICT DO NOTHING` so the script can be re-applied.
+- **`DO $EF$` guards cannot run, so the script drops applied migrations instead.** The CI reads `__EFMigrationsHistory` (`cockroach sql --format=csv --execute='SELECT "MigrationId" FROM "__EFMigrationsHistory"'`) and passes it to the rewrite as a third argument; every block whose migration is recorded there is removed, so only genuinely pending migrations run. The `IF [NOT] EXISTS` / `ON CONFLICT DO NOTHING` guards stay as a second layer for a migration that crashed part-way through its own statements.
+- **CockroachDB has no `RENAME COLUMN IF EXISTS`** even though the ALTER TABLE docs list the clause under RENAME COLUMN: the server answers `syntax error at or near "exists"`. One-shot DDL like that is why the applied-migration list above exists - do not try to guard a rename with `IF EXISTS`.
 - **No Windows cockroach binaries are published.** To exercise the CLI locally, run it in Docker: `docker run --rm -v "<dir>:/sql" cockroachdb/cockroach:v24.2.0 sql --url="postgresql://user:pass@host:26257/db?sslmode=require" --file=/sql/cockroach.sql`.
 - A `.sql` file written by PowerShell `Out-File -Encoding utf8` carries a BOM too — write generated SQL with a BOM-less writer (`python` `write_text(..., encoding="utf-8")`).
 
@@ -182,7 +183,7 @@ the console output.
 
 ## Project scripts (`scripts/`) — reuse these, don't recreate them
 
-- **`scripts/rewrite-migrations.py`** — the EF → CockroachDB SQL rewrite. **The CI workflow calls this** (`python3 scripts/rewrite-migrations.py sql/pending.sql sql/cockroach.sql`); edit the script, not the workflow YAML. Handles the `DO $EF$` blocks, the `dotnet ef` UTF-8 BOM, the idempotency rewrites and the `SET statement_timeout`. Stdlib only, so it runs on the CI runner unchanged.
+- **`scripts/rewrite-migrations.py`** - the EF → CockroachDB SQL rewrite. **The CI workflow calls this** (`python3 scripts/rewrite-migrations.py sql/pending.sql sql/cockroach.sql sql/applied.csv`); edit the script, not the workflow YAML. It drops the blocks of migrations already in `__EFMigrationsHistory` (third argument, CSV), unwraps the remaining `DO $EF$` blocks, strips the `dotnet ef` UTF-8 BOM, adds `IF [NOT] EXISTS` / `ON CONFLICT DO NOTHING` where the statement supports it, and prepends `SET statement_timeout`. Stdlib only, so it runs on the CI runner unchanged.
   ```
   dotnet ef migrations script --project FinanceManagerApi/FinanceManagerApi.csproj --startup-project FinanceManagerApi/FinanceManagerApi.csproj --idempotent --output sql/pending.sql
   python scripts/rewrite-migrations.py sql/pending.sql sql/cockroach.sql
