@@ -149,6 +149,41 @@ it to CockroachDB → notify Render.
 - **No Windows cockroach binaries are published.** To exercise the CLI locally, run it in Docker: `docker run --rm -v "<dir>:/sql" cockroachdb/cockroach:v24.2.0 sql --url="postgresql://user:pass@host:26257/db?sslmode=require" --file=/sql/cockroach.sql`.
 - A `.sql` file written by PowerShell `Out-File -Encoding utf8` carries a BOM too — write generated SQL with a BOM-less writer (`python` `write_text(..., encoding="utf-8")`).
 
+## Budgets & goals
+
+A category ceiling per month plus savings goals, both server-side.
+
+- **One limit per (user, category)**, unique index `(CreatedBy, ExpenseCategoryId)`.
+  The ceiling **carries forward** into every new month; the spend it is compared against is
+  always computed for the month being viewed, so spending "resets" on the 1st and the limit
+  does not. `EffectiveFrom` is informational only (drives "applies from November 2026
+  onward") — there is deliberately **no per-month history**.
+- `GET api/Budget/summary?month=&year=` returns the whole screen: totals, per-category rows,
+  `projected`, `safeToSpendPerDay`, `daysInMonth/Elapsed/Remaining`. The maths lives in
+  `BudgetService` (not the client) so it is unit-testable and identical everywhere:
+  - `projected = daysElapsed > 0 ? spent / daysElapsed * daysInMonth : 0` (linear run-rate)
+  - `safeToSpendPerDay = max(0, (limit - spent) / daysRemaining)` — leftovers over left-over days,
+    not a pace penalty
+  - `status` = `over` >100%, `near` ≥80%, `onTrack` otherwise, `noBudget` when the limit is 0
+  - month windows are UTC, so "days left" follows the server's UTC date
+  - spend comes from `IExpenseService.GetExpensesOfAMonthAsync` (already user-scoped), so the
+    ownership predicate is not duplicated
+- `POST api/Budget` `{categoryId, monthlyLimit}` upserts; `DELETE api/Budget/{categoryId}` clears.
+  Saving updates `MonthlyLimit`/`EffectiveFrom` only — ownership and the category id are server-owned.
+- **Goals use a contribution ledger**: `SavingsGoal` stores name/target/targetDate only, and
+  "saved so far" is `SUM(GoalContributions.Amount)`. A wrong entry is **deleted**, never edited,
+  which is what keeps `avgSavedPerMonth` and the pace verdict honest.
+  `api/Goal` supports list/get/create/update/delete plus
+  `POST api/Goal/{id}/contribution` and `DELETE api/Goal/{id}/contribution/{contributionId}`.
+  Opening balance is stored as the first contribution.
+- **EF relationship fix-up already attaches a newly inserted contribution to the tracked goal.**
+  `SavingsGoalService` therefore adds it to the loaded collection only when it is missing
+  (`if (!goal.Contributions.Contains(contribution))`); an unconditional `Add` double-counts the
+  amount in the response and in `AvgSavedPerMonth` (caught by `BudgetPersistenceTests`).
+- Unit tests: `BudgetServiceTests`, `SavingsGoalServiceTests` (Moq) and `BudgetPersistenceTests`
+  (real `FinanceDbContext` on the in-memory provider, so the `ExpenseCategory`/`Contributions`
+  includes and the DTO mapping are exercised).
+
 ## Diagnosing a generic 500
 
 `ExceptionMiddleware` returns `{"message":"An error occurred, please try again later"}`

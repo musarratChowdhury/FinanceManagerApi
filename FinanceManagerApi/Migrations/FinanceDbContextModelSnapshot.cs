@@ -22,6 +22,42 @@ namespace FinanceManagerApi.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("FinanceManagerApi.Models.Entity.BudgetLimit", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("EffectiveFrom")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("ExpenseCategoryId")
+                        .HasColumnType("bigint");
+
+                    b.Property<double>("MonthlyLimit")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpenseCategoryId");
+
+                    b.HasIndex("CreatedBy", "ExpenseCategoryId")
+                        .IsUnique();
+
+                    b.ToTable("BudgetLimits");
+                });
+
             modelBuilder.Entity("FinanceManagerApi.Models.Entity.Expense", b =>
                 {
                     b.Property<long>("Id")
@@ -88,6 +124,36 @@ namespace FinanceManagerApi.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ExpenseCategories");
+                });
+
+            modelBuilder.Entity("FinanceManagerApi.Models.Entity.GoalContribution", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<double>("Amount")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime>("ContributionDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("SavingsGoalId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SavingsGoalId");
+
+                    b.ToTable("GoalContributions");
                 });
 
             modelBuilder.Entity("FinanceManagerApi.Models.Entity.Identity.UserProfile", b =>
@@ -289,6 +355,37 @@ namespace FinanceManagerApi.Migrations
                     b.ToTable("ReceiptImages");
                 });
 
+            modelBuilder.Entity("FinanceManagerApi.Models.Entity.SavingsGoal", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<double>("TargetAmount")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime?>("TargetDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.ToTable("SavingsGoals");
+                });
+
             modelBuilder.Entity("FinanceManagerApi.Models.Entity.Settings", b =>
                 {
                     b.Property<long>("Id")
@@ -478,6 +575,17 @@ namespace FinanceManagerApi.Migrations
                     b.ToTable("UserTokens");
                 });
 
+            modelBuilder.Entity("FinanceManagerApi.Models.Entity.BudgetLimit", b =>
+                {
+                    b.HasOne("FinanceManagerApi.Models.Entity.ExpenseCategory", "ExpenseCategory")
+                        .WithMany()
+                        .HasForeignKey("ExpenseCategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ExpenseCategory");
+                });
+
             modelBuilder.Entity("FinanceManagerApi.Models.Entity.Expense", b =>
                 {
                     b.HasOne("FinanceManagerApi.Models.Entity.ExpenseCategory", "ExpenseCategory")
@@ -491,6 +599,17 @@ namespace FinanceManagerApi.Migrations
                     b.Navigation("ExpenseCategory");
 
                     b.Navigation("Receipt");
+                });
+
+            modelBuilder.Entity("FinanceManagerApi.Models.Entity.GoalContribution", b =>
+                {
+                    b.HasOne("FinanceManagerApi.Models.Entity.SavingsGoal", "SavingsGoal")
+                        .WithMany("Contributions")
+                        .HasForeignKey("SavingsGoalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SavingsGoal");
                 });
 
             modelBuilder.Entity("FinanceManagerApi.Models.Entity.Income", b =>
@@ -528,6 +647,11 @@ namespace FinanceManagerApi.Migrations
                     b.Navigation("Expenses");
 
                     b.Navigation("Images");
+                });
+
+            modelBuilder.Entity("FinanceManagerApi.Models.Entity.SavingsGoal", b =>
+                {
+                    b.Navigation("Contributions");
                 });
 #pragma warning restore 612, 618
         }

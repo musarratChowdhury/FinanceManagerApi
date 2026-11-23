@@ -85,6 +85,8 @@ builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepositor
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
 builder.Services.AddScoped<IReceiptService, ReceiptService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();
+builder.Services.AddScoped<IBudgetService, BudgetService>();
+builder.Services.AddScoped<ISavingsGoalService, SavingsGoalService>();
 
 // Receipt softcopy storage (Backblaze B2 via its S3-compatible API). Singleton:
 // the S3 client is thread-safe and is disposed with the app. Empty credentials
