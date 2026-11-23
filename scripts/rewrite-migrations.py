@@ -76,6 +76,19 @@ def rewrite(source: str) -> str:
         r"ALTER TABLE \1 ADD COLUMN IF NOT EXISTS ",
         source,
     )
+    # Renames and drops are inherently one-shot: EF guards them with a history
+    # check, which CockroachDB cannot evaluate outside a DO block. IF EXISTS on
+    # the old name gives the same "only if the migration has not run" effect.
+    source = re.sub(
+        r'(?i)ALTER TABLE\s+("(?:[^"]|"")+")\s+RENAME\s+COLUMN\s+(?=")',
+        r"ALTER TABLE \1 RENAME COLUMN IF EXISTS ",
+        source,
+    )
+    source = re.sub(
+        r'(?i)ALTER TABLE\s+("(?:[^"]|"")+")\s+DROP\s+COLUMN\s+(?=")',
+        r"ALTER TABLE \1 DROP COLUMN IF EXISTS ",
+        source,
+    )
     source = re.sub(
         r'(?is)INSERT INTO "__EFMigrationsHistory" '
         r'\("MigrationId", "ProductVersion"\)\s*VALUES\s*'
