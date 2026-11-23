@@ -53,6 +53,14 @@ def rewrite(source: str) -> str:
     # Make every statement re-appliable.
     source = re.sub(r'(?i)CREATE TABLE\s+(?=")', "CREATE TABLE IF NOT EXISTS ", source)
     source = re.sub(r'(?i)CREATE INDEX\s+(?=")', "CREATE INDEX IF NOT EXISTS ", source)
+    # A unique index is its own statement shape; without this rule it stays
+    # non-idempotent and the second apply dies on "index ... already exists"
+    # (which is exactly how IX_Settings_Key failed).
+    source = re.sub(
+        r'(?i)CREATE UNIQUE INDEX\s+(?=")',
+        "CREATE UNIQUE INDEX IF NOT EXISTS ",
+        source,
+    )
     source = re.sub(
         r'(?i)ALTER TABLE\s+("(?:[^"]|"")+")\s+ADD\s+CONSTRAINT\s+(?=")',
         r"ALTER TABLE \1 ADD CONSTRAINT IF NOT EXISTS ",
