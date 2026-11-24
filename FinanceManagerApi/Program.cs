@@ -145,6 +145,16 @@ app.MapGet("/", async context =>
 	context.Response.Redirect("/index.html");
 });
 
+// Liveness probe for the web app's status indicator (and for uptime checks).
+// Deliberately dependency-free: it answers "is this process serving requests",
+// so a CockroachDB outage still reports the API as reachable and the client can
+// tell the two failures apart. Anonymous on purpose - no [Authorize] here.
+app.MapGet("/health", () => Results.Ok(new
+{
+	status = "ok",
+	time = DateTime.UtcNow
+}));
+
 if (app.Environment.IsDevelopment())
 {
 	using var scope = app.Services.CreateScope();
